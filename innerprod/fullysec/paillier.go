@@ -17,15 +17,13 @@
 package fullysec
 
 import (
-	"fmt"
 	"math/big"
-
+	"fmt"
 	emmy "github.com/xlab-si/emmy/crypto/common"
 
 	"crypto/rand"
-
-	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/sample"
+	"github.com/fentec-project/gofe/data"
 )
 
 // paillerParams represents parameters for the fully secure Paillier scheme.
