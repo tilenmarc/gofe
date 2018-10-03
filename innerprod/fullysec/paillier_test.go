@@ -62,17 +62,18 @@ func TestFullySec_Paillier(t *testing.T) {
 	}
 
 	// simulate the instantiation of encryptor (which should be given masterPubKey)
-	//encryptor := fullysec.NewDamgardFromParams(damgard.Params)
-	xyCheck, err := x.Dot(y)
-	if err != nil {
-		t.Fatalf("Error during inner product calculation")
-	}
+	encryptor := fullysec.NewPaillierFromParams(paillier.Params)
 
-	ciphertext, err := paillier.Encrypt(x, masterPubKey)
+	ciphertext, err := encryptor.Encrypt(x, masterPubKey)
 	if err != nil {
 		t.Fatalf("Error during encryption: %v", err)
 	}
 
 	xy := paillier.Decrypt(ciphertext, key, y)
+
+	xyCheck, err := x.Dot(y)
+	if err != nil {
+		t.Fatalf("Error during inner product calculation")
+	}
 	assert.Equal(t, xy, xyCheck, "Original and decrypted values should match")
 }

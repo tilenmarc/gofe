@@ -42,7 +42,7 @@ type paillerParams struct {
 
 // Paillier represents a scheme based on the Paillier encryption.
 type Paillier struct {
-	params *paillerParams
+	Params *paillerParams
 }
 
 // NewPaillier configures a new instance of the scheme.
@@ -117,7 +117,7 @@ func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Pailli
 	sigma.SetInt(sigmaI)
 
 	return &Paillier{
-		params: &paillerParams{
+		Params: &paillerParams{
 			l:       l,
 			n:       n,
 			nSquare: nSquare,
@@ -130,26 +130,35 @@ func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Pailli
 	}, nil
 }
 
+// NewPaillierFromParams takes configuration parameters of an existing
+// Paillier scheme instance, and reconstructs the scheme with same configuration
+// parameters. It returns a new Paillier instance.
+func NewPaillierFromParams(params *paillerParams) *Paillier {
+	return &Paillier{
+		Params: params,
+	}
+}
+
 // GenerateMasterKeys generates a master secret key and a master
 // public key for the scheme. It returns an error in case master keys
 // could not be generated.
 func (d *Paillier) GenerateMasterKeys() (data.Vector, data.Vector, error) {
 	// sampler for sampling a secret key
-	sampler, err := sample.NewNormalDouble(d.params.sigma, uint(d.params.lambda),
+	sampler, err := sample.NewNormalDouble(d.Params.sigma, uint(d.Params.lambda),
 		big.NewFloat(1), 0)
 	if err != nil {
 		return nil, nil, err
 	}
 	// generate a secret key
-	secKey, err := data.NewRandomVector(d.params.l, sampler)
+	secKey, err := data.NewRandomVector(d.Params.l, sampler)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// derive the public key from the generated secret key
 	pubKey := secKey.Apply(func(x *big.Int) *big.Int {
-		return modExp(d.params.g,
-			x, d.params.nSquare)
+		return modExp(d.Params.g,
+			x, d.Params.nSquare)
 	})
 	return secKey, pubKey, nil
 }
@@ -159,7 +168,7 @@ func (d *Paillier) GenerateMasterKeys() (data.Vector, data.Vector, error) {
 // In case of malformed secret key or input vector that violates the configured
 // bound, it returns an error.
 func (d *Paillier) DeriveKey(masterSecKey data.Vector, y data.Vector) (*big.Int, error) {
-	if err := y.CheckBound(d.params.boundY); err != nil {
+	if err := y.CheckBound(d.Params.boundY); err != nil {
 		return nil, err
 	}
 
@@ -173,30 +182,30 @@ func (d *Paillier) DeriveKey(masterSecKey data.Vector, y data.Vector) (*big.Int,
 // Encrypt encrypts input vector x with the provided master public key.
 // It returns a ciphertext vector. If encryption failed, error is returned.
 func (d *Paillier) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
-	if err := x.CheckBound(d.params.boundX); err != nil {
+	if err := x.CheckBound(d.Params.boundX); err != nil {
 		return nil, err
 	}
 
 	// generate a randomness for the encryption
-	nOver4 := new(big.Int).Quo(d.params.n, big.NewInt(4))
+	nOver4 := new(big.Int).Quo(d.Params.n, big.NewInt(4))
 	r, err := rand.Int(rand.Reader, nOver4)
 	if err != nil {
 		return nil, err
 	}
 
 	// encrypt x under randomness r
-	ciphertext := make([]*big.Int, d.params.l+1)
+	ciphertext := make([]*big.Int, d.Params.l+1)
 	// c_0 = g^r in Z_n^2
-	c0 := new(big.Int).Exp(d.params.g, r, d.params.nSquare)
+	c0 := new(big.Int).Exp(d.Params.g, r, d.Params.nSquare)
 	ciphertext[0] = c0
-	for i := 0; i < d.params.l; i++ {
+	for i := 0; i < d.Params.l; i++ {
 		// c_i = (1 + x_i * n) * pubKey_i^r in Z_n^2
-		t1 := new(big.Int).Mul(x[i], d.params.n)
+		t1 := new(big.Int).Mul(x[i], d.Params.n)
 		t1.Add(t1, big.NewInt(1))
-		t1.Mod(t1, d.params.nSquare)
-		t2 := new(big.Int).Exp(masterPubKey[i], r, d.params.nSquare)
+		t1.Mod(t1, d.Params.nSquare)
+		t2 := new(big.Int).Exp(masterPubKey[i], r, d.Params.nSquare)
 		ct := new(big.Int).Mul(t1, t2)
-		ct.Mod(ct, d.params.nSquare)
+		ct.Mod(ct, d.Params.nSquare)
 		ciphertext[i+1] = ct
 	}
 
@@ -208,18 +217,18 @@ func (d *Paillier) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big.Int {
 	// tmp value cX is calculated as (prod_{i=1 to l) c_i^y_i) * c_0^(-key) in Z_n^2
 	keyNeg := new(big.Int).Neg(key)
-	cX := modExp(cipher[0], keyNeg, d.params.nSquare)
+	cX := modExp(cipher[0], keyNeg, d.Params.nSquare)
 
 	for i, ct := range cipher[1:] {
-		t1 := new(big.Int).Exp(ct, y[i], d.params.nSquare)
+		t1 := new(big.Int).Exp(ct, y[i], d.Params.nSquare)
 		cX.Mul(cX, t1)
-		cX.Mod(cX, d.params.nSquare)
+		cX.Mod(cX, d.Params.nSquare)
 	}
 
 	// decryption is calculated as (cX-1 mod n^2)/n
 	cX.Sub(cX, big.NewInt(1))
-	cX.Mod(cX, d.params.nSquare)
-	ret := new(big.Int).Quo(cX, d.params.n)
+	cX.Mod(cX, d.Params.nSquare)
+	ret := new(big.Int).Quo(cX, d.Params.n)
 
 	return ret
 }
