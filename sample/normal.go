@@ -82,15 +82,25 @@ func (c normal) precompExp() []*big.Float {
 // calculation of exp(-x/(2*sigma^2)) based on the precomputed
 // values if such values are provided. Sigma is implicit in the
 // precomputed values saved in c.
+<<<<<<< f1a21ac3fa17e9120547afc4d380c64bc41a7cf0
 func (c normal) isExpGreater(y *big.Float, x *big.Int) int {
+=======
+func (c normal) isExpGreater(y *big.Float, x *big.Int) bool {
+>>>>>>> finished paillier scheme, modified normal_double to have option to not do the precomputation
 	// check if precomputed values are provided, if not compute
 	// the exp using the taylor polynomial
 	if c.preExp == nil {
 		val := taylorExp(x, c.twoSigmaSquare, 8*c.n, c.n)
 		if val.Cmp(y) == -1 {
+<<<<<<< f1a21ac3fa17e9120547afc4d380c64bc41a7cf0
 			return 1
 		} else {
 			return 0
+=======
+			return true
+		} else {
+			return false
+>>>>>>> finished paillier scheme, modified normal_double to have option to not do the precomputation
 		}
 	}
 	// if precomputed values are not provided set up an upper and

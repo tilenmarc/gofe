@@ -66,7 +66,7 @@ func TestFullySec_Paillier(t *testing.T) {
 
 	ciphertext, err := encryptor.Encrypt(x, masterPubKey)
 	if err != nil {
-		t.Fatalf("Error during encryption: %v", err)
+		t.Fatalf("Error during inner product calculation")
 	}
 
 	xy := paillier.Decrypt(ciphertext, key, y)
