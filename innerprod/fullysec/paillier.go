@@ -30,14 +30,14 @@ import (
 
 // paillerParams represents parameters for the fully secure Paillier scheme.
 type paillerParams struct {
-	l       int // Length of data vectors for inner product
-	n       *big.Int // a big integer, a product of two safe primes
-	nSquare *big.Int // n^2 a modulus for computations
-	boundX  *big.Int // a bound on the entries of the input vector
-	boundY  *big.Int // a bound on the entries of the inner product vector
+	l       int        // Length of data vectors for inner product
+	n       *big.Int   // a big integer, a product of two safe primes
+	nSquare *big.Int   // n^2 a modulus for computations
+	boundX  *big.Int   // a bound on the entries of the input vector
+	boundY  *big.Int   // a bound on the entries of the inner product vector
 	sigma   *big.Float // the standard deviation for the sampling a secret key
-	lambda  int // safety parameter
-	g       *big.Int // generator of the 2n-th residues subgroup of Z_n^2*
+	lambda  int        // safety parameter
+	g       *big.Int   // generator of the 2n-th residues subgroup of Z_n^2*
 }
 
 // Paillier represents a scheme based on the Paillier encryption.
@@ -125,7 +125,7 @@ func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Pailli
 			boundY:  boundY,
 			sigma:   sigma,
 			lambda:  lambda,
-			g:		 g,
+			g:       g,
 		},
 	}, nil
 }
@@ -147,8 +147,10 @@ func (d *Paillier) GenerateMasterKeys() (data.Vector, data.Vector, error) {
 	}
 
 	// derive the public key from the generated secret key
-	pubKey := secKey.Apply(func(x *big.Int) *big.Int { return modExp(d.params.g,
-		x, d.params.nSquare) })
+	pubKey := secKey.Apply(func(x *big.Int) *big.Int {
+		return modExp(d.params.g,
+			x, d.params.nSquare)
+	})
 	return secKey, pubKey, nil
 }
 
