@@ -48,7 +48,7 @@ func TestNewNormalDouble(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := sample.NewNormalDouble(test.sigma, test.n, test.sigmaFirst)
+			_, err := sample.NewNormalDouble(test.sigma, test.n, test.sigmaFirst, 1)
 			assert.Error(t, err)
 		})
 	}
@@ -59,6 +59,7 @@ func TestNormalDouble(t *testing.T) {
 		name       string
 		sigma      *big.Float
 		sigmaFirst *big.Float
+		preComp    int
 		n          uint
 		expect     paramBounds
 	}{
@@ -67,9 +68,23 @@ func TestNormalDouble(t *testing.T) {
 			sigmaFirst: big.NewFloat(1),
 			sigma:      big.NewFloat(10),
 			n:          256,
+			preComp:    1,
 			expect: paramBounds{
-				meanLow:  -0.5,
-				meanHigh: 0.5,
+				meanLow:  -1,
+				meanHigh: 1,
+				varLow:   90,
+				varHigh:  110,
+			},
+		},
+		{
+			name:       "SigmaFirst=1, sigma10",
+			sigmaFirst: big.NewFloat(1),
+			sigma:      big.NewFloat(10),
+			n:          256,
+			preComp:    0,
+			expect: paramBounds{
+				meanLow:  -1,
+				meanHigh: 1,
 				varLow:   90,
 				varHigh:  110,
 			},
@@ -79,9 +94,10 @@ func TestNormalDouble(t *testing.T) {
 			sigmaFirst: big.NewFloat(1.5),
 			sigma:      big.NewFloat(9),
 			n:          256,
+			preComp:    1,
 			expect: paramBounds{
-				meanLow:  -0.5,
-				meanHigh: 0.5,
+				meanLow:  -1,
+				meanHigh: 1,
 				varLow:   70,
 				varHigh:  100,
 			},
@@ -90,7 +106,7 @@ func TestNormalDouble(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sampler, err := sample.NewNormalDouble(test.sigma, test.n, test.sigmaFirst)
+			sampler, err := sample.NewNormalDouble(test.sigma, test.n, test.sigmaFirst, test.preComp)
 			assert.NoError(t, err)
 			testNormalSampler(
 				t,
