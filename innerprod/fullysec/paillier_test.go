@@ -32,7 +32,7 @@ func TestFullySec_Paillier(t *testing.T) {
 	boundY := new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
 
 	samplerX := sample.NewUniformRange(new(big.Int).Neg(boundX), boundX)
-	samplerY := sample.NewUniformRange(new(big.Int).Neg(boundX), boundY)
+	samplerY := sample.NewUniformRange(new(big.Int).Neg(boundY), boundY)
 	bitLength := 512
 	lambda := 128
 
