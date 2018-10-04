@@ -220,7 +220,7 @@ func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big
 	cX := modExp(cipher[0], keyNeg, d.Params.nSquare)
 
 	for i, ct := range cipher[1:] {
-		t1 := new(big.Int).Exp(ct, y[i], d.Params.nSquare)
+		t1 := modExp(ct, y[i], d.Params.nSquare)
 		cX.Mul(cX, t1)
 		cX.Mod(cX, d.Params.nSquare)
 	}
@@ -229,6 +229,12 @@ func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big
 	cX.Sub(cX, big.NewInt(1))
 	cX.Mod(cX, d.Params.nSquare)
 	ret := new(big.Int).Quo(cX, d.Params.n)
+	// if the return value is negative this is seen as the above ret beaing
+	// greater than n/2; in this case ret = ret - n
+	nHalf := new(big.Int).Quo(d.Params.n, big.NewInt(2))
+	if ret.Cmp(nHalf) == 1 {
+		ret.Sub(ret, d.Params.n)
+	}
 
 	return ret
 }
