@@ -157,7 +157,7 @@ func (d *Paillier) GenerateMasterKeys() (data.Vector, data.Vector, error) {
 
 	// derive the public key from the generated secret key
 	pubKey := secKey.Apply(func(x *big.Int) *big.Int {
-		return modExp(d.Params.g,
+		return ModExp(d.Params.g,
 			x, d.Params.nSquare)
 	})
 	return secKey, pubKey, nil
@@ -217,10 +217,10 @@ func (d *Paillier) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big.Int {
 	// tmp value cX is calculated as (prod_{i=1 to l) c_i^y_i) * c_0^(-key) in Z_n^2
 	keyNeg := new(big.Int).Neg(key)
-	cX := modExp(cipher[0], keyNeg, d.Params.nSquare)
+	cX := ModExp(cipher[0], keyNeg, d.Params.nSquare)
 
 	for i, ct := range cipher[1:] {
-		t1 := modExp(ct, y[i], d.Params.nSquare)
+		t1 := ModExp(ct, y[i], d.Params.nSquare)
 		cX.Mul(cX, t1)
 		cX.Mod(cX, d.Params.nSquare)
 	}
@@ -239,8 +239,9 @@ func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big
 	return ret
 }
 
+// TODO: where should this function be: maybe even in emmy?
 // modExp calculates g^x in Z_m*, even if x < 0
-func modExp(g, x, m *big.Int) *big.Int {
+func ModExp(g, x, m *big.Int) *big.Int {
 	ret := new(big.Int)
 	if x.Cmp(big.NewInt(0)) == -1 {
 		xNeg := new(big.Int).Neg(x)
