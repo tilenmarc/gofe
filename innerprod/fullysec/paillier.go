@@ -145,7 +145,7 @@ func NewPaillierFromParams(params *paillerParams) *Paillier {
 func (d *Paillier) GenerateMasterKeys() (data.Vector, data.Vector, error) {
 	// sampler for sampling a secret key
 	sampler, err := sample.NewNormalDouble(d.Params.sigma, uint(d.Params.lambda),
-		big.NewFloat(1), 0)
+		big.NewFloat(1), false)
 	if err != nil {
 		return nil, nil, err
 	}
