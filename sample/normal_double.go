@@ -42,7 +42,7 @@ type NormalDouble struct {
 // It assumes mean = 0. Values are precomputed when this function is
 // called, so that Sample merely samples a value.
 // sigma should be a multiple of firstSigma. Increasing firstSigma a bit speeds
-// up the algorithm but increases the size of the precomputed values.
+// up the algorithm but increases the number of the precomputed values.
 // preComp is a variable defining the certain exp values are precomputed. If the
 // sampler will be used only few times and sigma is big then it is better to not
 // do the precomputations.
