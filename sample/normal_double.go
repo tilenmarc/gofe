@@ -46,7 +46,7 @@ type NormalDouble struct {
 // preComp is a variable defining the certain exp values are precomputed. If the
 // sampler will be used only few times and sigma is big then it is better to not
 // do the precomputations.
-func NewNormalDouble(sigma *big.Float, n uint, firstSigma *big.Float, preComp int) (*NormalDouble, error) {
+func NewNormalDouble(sigma *big.Float, n uint, firstSigma *big.Float, preComp bool) (*NormalDouble, error) {
 	kF := new(big.Float)
 	kF.Quo(sigma, firstSigma)
 	if !kF.IsInt() {
@@ -60,7 +60,7 @@ func NewNormalDouble(sigma *big.Float, n uint, firstSigma *big.Float, preComp in
 		k:           k,
 		twiceK:      twiceK,
 	}
-	if preComp == 1 {
+	if preComp == true {
 		s.preExp = s.precompExp()
 	}
 	return s, nil
