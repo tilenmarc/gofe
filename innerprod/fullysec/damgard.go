@@ -85,8 +85,6 @@ func NewDamgard(l, modulusLength int, bound *big.Int) (*Damgard, error) {
 		return nil, fmt.Errorf("l * bound^2 should be smaller than group order")
 	}
 
-
-
 	h := new(big.Int)
 	for {
 		r, err := emmy.GetRandomIntFromRange(big.NewInt(1), key.P)
@@ -121,7 +119,7 @@ func NewDamgard(l, modulusLength int, bound *big.Int) (*Damgard, error) {
 			g:     key.G,
 			h:     h,
 			p:     key.P,
-			q:	   key.Q,
+			q:     key.Q,
 		},
 	}, nil
 }

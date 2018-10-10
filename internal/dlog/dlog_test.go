@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fentec-project/gofe/internal/keygen"
 	"github.com/stretchr/testify/assert"
 	emmy "github.com/xlab-si/emmy/crypto/common"
 	"github.com/xlab-si/emmy/crypto/schnorr"
-	"github.com/fentec-project/gofe/internal/keygen"
 )
 
 type params struct {

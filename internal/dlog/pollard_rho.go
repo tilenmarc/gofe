@@ -195,7 +195,6 @@ func pollardRhoParallel(h, g, p, order *big.Int) (*big.Int, error) {
 				q.Add(q, nDivD)
 			}
 
-
 		} else {
 			triples[str] = triple
 		}

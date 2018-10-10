@@ -27,7 +27,7 @@ import (
 )
 
 func TestFullySec_Paillier(t *testing.T) {
-	l := 100
+	l := 50
 	boundX := new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
 	boundY := new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
 
@@ -69,7 +69,10 @@ func TestFullySec_Paillier(t *testing.T) {
 		t.Fatalf("Error during inner product calculation")
 	}
 
-	xy := paillier.Decrypt(ciphertext, key, y)
+	xy, err := paillier.Decrypt(ciphertext, key, y)
+	if err != nil {
+		t.Fatalf("Error during decryption")
+	}
 
 	xyCheck, err := x.Dot(y)
 	if err != nil {
