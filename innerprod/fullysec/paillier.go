@@ -61,16 +61,11 @@ func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Pailli
 	if err != nil {
 		return nil, err
 	}
-	pPrime := new(big.Int).Sub(p, big.NewInt(1))
-	pPrime.Quo(pPrime, big.NewInt(2))
 
 	q, err := emmy.GetSafePrime(bitLength)
 	if err != nil {
 		return nil, err
 	}
-
-	qPrime := new(big.Int).Sub(q, big.NewInt(1))
-	pPrime.Quo(qPrime, big.NewInt(2))
 
 	// calculate n = p * q
 	n := new(big.Int).Mul(p, q)
@@ -101,7 +96,7 @@ func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Pailli
 
 	// check if generated g is invertible, which should be the case except with
 	// negligible probability
-	check := g.ModInverse(g, nSquare)
+	check := new(big.Int).ModInverse(g, nSquare)
 	if check == nil {
 		return nil, fmt.Errorf("parameters generation failed," +
 			"unexpected event of generator g is not invertible")
@@ -202,7 +197,6 @@ func (d *Paillier) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 		// c_i = (1 + x_i * n) * pubKey_i^r in Z_n^2
 		t1 := new(big.Int).Mul(x[i], d.Params.n)
 		t1.Add(t1, big.NewInt(1))
-		t1.Mod(t1, d.Params.nSquare)
 		t2 := new(big.Int).Exp(masterPubKey[i], r, d.Params.nSquare)
 		ct := new(big.Int).Mul(t1, t2)
 		ct.Mod(ct, d.Params.nSquare)
@@ -214,7 +208,10 @@ func (d *Paillier) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 
 // Decrypt accepts the encrypted vector, functional encryption key, and
 // a vector y. It returns the inner product of x and y.
-func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big.Int {
+func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) (*big.Int, error) {
+	if err := y.CheckBound(d.Params.boundY); err != nil {
+		return nil, err
+	}
 	// tmp value cX is calculated as (prod_{i=1 to l) c_i^y_i) * c_0^(-key) in Z_n^2
 	keyNeg := new(big.Int).Neg(key)
 	cX := ModExp(cipher[0], keyNeg, d.Params.nSquare)
@@ -236,7 +233,7 @@ func (d *Paillier) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) *big
 		ret.Sub(ret, d.Params.n)
 	}
 
-	return ret
+	return ret, nil
 }
 
 // TODO: where should this function be: maybe even in emmy?
