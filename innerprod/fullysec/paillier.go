@@ -50,19 +50,19 @@ type Paillier struct {
 // the bit length of prime numbers (giving security to the scheme, it
 // should be such that factoring two primes with such a bit length takes
 // at least 2^lambda operations), and boundX and boundY by which
-// coordinates of input vectors and inner product vectors are are bounded.
+// coordinates of input vectors and inner product vectors are bounded.
 //
-// It returns an error in case the scheme could not be properly
-// configured, or if precondition boundX, boundY < (n / l)^(1/2)
+// It returns an error in the case the scheme could not be properly
+// configured, or if the precondition boundX, boundY < (n / l)^(1/2)
 // is not satisfied.
-func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Paillier, error) {
+func NewPaillier(l, lambda int, bitLen int, boundX, boundY *big.Int) (*Paillier, error) {
 	// generate two safe primes
-	p, err := emmy.GetSafePrime(bitLength)
+	p, err := emmy.GetSafePrime(bitLen)
 	if err != nil {
 		return nil, err
 	}
 
-	q, err := emmy.GetSafePrime(bitLength)
+	q, err := emmy.GetSafePrime(bitLen)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +82,11 @@ func NewPaillier(l, lambda int, bitLength int, boundX, boundY *big.Int) (*Pailli
 	ySquareL.Mul(ySquareL, big.NewInt(int64(l)))
 	if n.Cmp(xSquareL) < 1 {
 		return nil, fmt.Errorf("parameters generation failed," +
-			"boundX and l too big for bitLength")
+			"boundX and l too big for bitLen")
 	}
 	if n.Cmp(ySquareL) < 1 {
 		return nil, fmt.Errorf("parameters generation failed," +
-			"boundX and l too big for bitLength")
+			"boundX and l too big for bitLen")
 	}
 
 	// generate a generator for the 2n-th residues subgroup of Z_n^2*
