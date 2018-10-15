@@ -21,10 +21,10 @@ import (
 	"math/big"
 
 	"github.com/fentec-project/gofe/data"
-	"github.com/fentec-project/gofe/innerprod/fullysec"
 	"github.com/fentec-project/gofe/internal/dlog"
 	"github.com/fentec-project/gofe/internal/keygen"
 	emmy "github.com/xlab-si/emmy/crypto/common"
+	"github.com/fentec-project/gofe/internal"
 )
 
 // ddhParams represents configuration parameters for the DDH scheme instance.
@@ -95,7 +95,7 @@ func (d *DDH) GenerateMasterKeys() (data.Vector, data.Vector, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		y := fullysec.ModExp(d.Params.g, x, d.Params.p)
+		y := internal.ModExp(d.Params.g, x, d.Params.p)
 		masterSecKey[i] = x
 		masterPubKey[i] = y
 	}
@@ -139,7 +139,7 @@ func (d *DDH) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 		// ct_i = h_i^r * g^x_i
 		// ct_i = mpk[i]^r * g^x_i
 		t1 := new(big.Int).Exp(masterPubKey[i], r, d.Params.p)
-		t2 := fullysec.ModExp(d.Params.g, x[i], d.Params.p)
+		t2 := internal.ModExp(d.Params.g, x[i], d.Params.p)
 		ct := new(big.Int).Mod(new(big.Int).Mul(t1, t2), d.Params.p)
 		ciphertext[i+1] = ct
 	}
@@ -157,11 +157,11 @@ func (d *DDH) Decrypt(cipher data.Vector, key *big.Int, y data.Vector) (*big.Int
 
 	num := big.NewInt(1)
 	for i, ct := range cipher[1:] {
-		t1 := fullysec.ModExp(ct, y[i], d.Params.p)
+		t1 := internal.ModExp(ct, y[i], d.Params.p)
 		num = num.Mod(new(big.Int).Mul(num, t1), d.Params.p)
 	}
 
-	denom := fullysec.ModExp(cipher[0], key, d.Params.p)
+	denom := internal.ModExp(cipher[0], key, d.Params.p)
 	denomInv := new(big.Int).ModInverse(denom, d.Params.p)
 	r := new(big.Int).Mod(new(big.Int).Mul(num, denomInv), d.Params.p)
 
