@@ -60,7 +60,7 @@ func TestDLog(t *testing.T) {
 		t.Fatalf("Error in BabyStepGiantStep algorithm: %v", err)
 	}
 
-	x2, err := pollardRho(h, params.g, params.p, params.order)
+	x2, err := pollardRhoParallel(h, params.g, params.p, params.order)
 
 	if err != nil {
 		t.Fatalf("Error in Pollard rho algorithm: %v", err)

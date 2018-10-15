@@ -32,14 +32,12 @@ import (
 // g (int): Generator of a cyclic group Z_p: g**(p-1) = 1 (mod p).
 // h (int): Generator of a cyclic group Z_p: h**(p-1) = 1 (mod p).
 // p (int): Modulus - we are operating in a cyclic group Z_p.
-// q (int): The order of g, i.e. g^q = 1 (mod p)
 type damgardParams struct {
 	l     int
 	bound *big.Int
 	g     *big.Int
 	h     *big.Int
 	p     *big.Int
-	q     *big.Int
 }
 
 // Based on DDH variant of:
@@ -121,7 +119,6 @@ func NewDamgard(l, modulusLength int, bound *big.Int) (*Damgard, error) {
 			g:     key.G,
 			h:     h,
 			p:     key.P,
-			q:     key.Q,
 		},
 	}, nil
 }
