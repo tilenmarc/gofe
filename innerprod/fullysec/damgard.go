@@ -24,6 +24,7 @@ import (
 	"github.com/fentec-project/gofe/internal/dlog"
 	"github.com/fentec-project/gofe/internal/keygen"
 	emmy "github.com/xlab-si/emmy/crypto/common"
+	"github.com/fentec-project/gofe/internal"
 )
 
 // l (int): The length of vectors to be encrypted.
@@ -31,6 +32,7 @@ import (
 // g (int): Generator of a cyclic group Z_p: g**(p-1) = 1 (mod p).
 // h (int): Generator of a cyclic group Z_p: h**(p-1) = 1 (mod p).
 // p (int): Modulus - we are operating in a cyclic group Z_p.
+// q (int): The order of g, i.e. g^q = 1 (mod p)
 type damgardParams struct {
 	l     int
 	bound *big.Int
@@ -226,7 +228,7 @@ func (d *Damgard) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 		// e_i = h_i^r * g^x_i
 		// e_i = mpk[i]^r * g^x_i
 		t1 := new(big.Int).Exp(masterPubKey[i], r, d.Params.p)
-		t2 := ModExp(d.Params.g, x[i], d.Params.p)
+		t2 := internal.ModExp(d.Params.g, x[i], d.Params.p)
 		ct := new(big.Int).Mod(new(big.Int).Mul(t1, t2), d.Params.p)
 		ciphertext[i+2] = ct
 	}
@@ -244,7 +246,7 @@ func (d *Damgard) Decrypt(cipher data.Vector, key *DamgardDerivedKey, y data.Vec
 
 	num := big.NewInt(1)
 	for i, ct := range cipher[2:] {
-		t1 := ModExp(ct, y[i], d.Params.p)
+		t1 := internal.ModExp(ct, y[i], d.Params.p)
 		num = num.Mod(new(big.Int).Mul(num, t1), d.Params.p)
 	}
 
