@@ -20,25 +20,55 @@ type innerprodParams struct {
 func TestInnerProductSchemes(t *testing.T) {
 
 	params := []innerprodParams{
+		//{
+		//	n:      32,
+		//	l:      10,
+		//	bound: big.NewInt(10),
+		//},
 		{
-			n:      32,
-			l:      10,
-			bound: big.NewInt(10),
+			n:      64,
+			l:      5,
+			bound: big.NewInt(1000),
 		},
 		{
 			n:      64,
-			l:      10,
+			l:      5,
 			bound: big.NewInt(10000),
 		},
 		{
 			n:      64,
-			l:      10,
-			bound: big.NewInt(1000000),
+			l:      5,
+			bound: big.NewInt(100000),
 		},
+		//{
+		//	n:      64,
+		//	l:      5,
+		//	bound: big.NewInt(1000000),
+		//},
+		{
+			n:      64,
+			l:      20,
+			bound: big.NewInt(1000),
+		},
+		{
+			n:      64,
+			l:      20,
+			bound: big.NewInt(10000),
+		},
+		{
+			n:      64,
+			l:      20,
+			bound: big.NewInt(100000),
+		},
+		//{
+		//	n:      64,
+		//	l:      20,
+		//	bound: big.NewInt(1000000),
+		//},
 		//{
 		//	n:      128,
 		//	l:      10,
-		//	bound: big.NewInt(10000),
+		//	bound: big.NewInt(1000000),
 		//},
 		//{
 		//	n:      128,
@@ -49,7 +79,7 @@ func TestInnerProductSchemes(t *testing.T) {
 
 
 	for _, par := range params {
-		sampler := sample.NewUniformRange(new(big.Int).Neg(par.bound), par.bound)
+		sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
 		y, _ := data.NewRandomVector(par.l, sampler)
 		x, _ := data.NewRandomVector(par.l, sampler)
 		xyCheck, _ := x.Dot(y)
@@ -64,6 +94,9 @@ func TestInnerProductSchemes(t *testing.T) {
 		})
 		t.Run("simple_lwe", func(t *testing.T) {
 			testSimpleLwe(t, par, x, y, xyCheck)
+		})
+		t.Run("paillier", func(t *testing.T) {
+			testPaillier(t, par, x, y, xyCheck)
 		})
 	}
 }
@@ -108,4 +141,14 @@ func testSimpleLwe(t *testing.T, par innerprodParams, x, y data.Vector, xyCheck 
 	cipher, _ := simpleLWE.Encrypt(x, PK)
 	xyDecrypted, _ := simpleLWE.Decrypt(cipher, skY, y)
 	assert.Equal(t, xyCheck.Cmp(xyDecrypted), 0, "obtained incorrect inner product")
+}
+
+func testPaillier(t *testing.T, par innerprodParams, x, y data.Vector, xyCheck *big.Int) {
+	paillier, _ := fullysec.NewPaillier(par.l, par.n, par.n * 4, par.bound, par.bound)
+	masterSecKey, masterPubKey, _ := paillier.GenerateMasterKeys()
+	key, _ := paillier.DeriveKey(masterSecKey, y)
+	encryptor := fullysec.NewPaillierFromParams(paillier.Params)
+	ciphertext, _ := encryptor.Encrypt(x, masterPubKey)
+	xy, _ := paillier.Decrypt(ciphertext, key, y)
+	assert.Equal(t, xy.Cmp(xyCheck), 0, "Original and decrypted values should match")
 }
