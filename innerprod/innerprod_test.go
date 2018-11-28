@@ -8,6 +8,7 @@ import (
 	"github.com/fentec-project/gofe/sample"
 	"github.com/fentec-project/gofe/data"
 	"github.com/stretchr/testify/assert"
+	"github.com/fentec-project/gofe/innerprod/simple"
 )
 
 // paramBounds holds the boundaries for acceptable mean
@@ -16,15 +17,16 @@ type innerprodParams struct {
 	n, l int
 	bound *big.Int
 }
-
+// TODO: writing this I noticed: -in generating fullysec or simple LWE struct parameters are in different order
+// -in simple we have ddh, in fullysec we have damgard
 
 func BenchmarkFullyDamgard(b *testing.B) {
 	params := []innerprodParams{
 		{n: 64, l: 20, bound: big.NewInt(100000),},
-		//{n: 128, l: 20, bound: big.NewInt(10000),},
-		//{n: 128, l: 200, bound: big.NewInt(10000),},
-		//{n: 128, l: 20, bound: big.NewInt(100000),},
-		//{n: 256, l: 20, bound: big.NewInt(10000),},
+		{n: 128, l: 20, bound: big.NewInt(10000),},
+		{n: 128, l: 200, bound: big.NewInt(10000),},
+		{n: 128, l: 20, bound: big.NewInt(100000),},
+		{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
 	for _, par := range params {
@@ -84,9 +86,9 @@ func BenchmarkFullyDamgard(b *testing.B) {
 func BenchmarkFullyLWE(b *testing.B) {
 	params := []innerprodParams{
 		{n: 64, l: 20, bound: big.NewInt(100000),},
-		//{n: 128, l: 20, bound: big.NewInt(10000),},
-		//{n: 128, l: 200, bound: big.NewInt(10000),},
-		//{n: 128, l: 20, bound: big.NewInt(100000),},
+		{n: 128, l: 20, bound: big.NewInt(10000),},
+		{n: 128, l: 200, bound: big.NewInt(10000),},
+		{n: 128, l: 20, bound: big.NewInt(100000),},
 		//{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
@@ -150,6 +152,205 @@ func BenchmarkFullyLWE(b *testing.B) {
 		assert.Equal(b, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
 	}
 }
+
+
+func BenchmarkFullyPaillier(b *testing.B) {
+	params := []innerprodParams{
+		{n: 64, l: 20, bound: big.NewInt(100000),},
+		{n: 128, l: 20, bound: big.NewInt(10000),},
+		{n: 128, l: 200, bound: big.NewInt(10000),},
+		{n: 128, l: 20, bound: big.NewInt(100000),},
+		{n: 256, l: 20, bound: big.NewInt(10000),},
+	}
+
+	for _, par := range params {
+		sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
+		y, _ := data.NewRandomVector(par.l, sampler)
+		x, _ := data.NewRandomVector(par.l, sampler)
+		xyCheck, _ := x.Dot(y)
+		var err error
+		var paillier *fullysec.Paillier
+		var masterSecKey data.Vector
+		var masterPubKey data.Vector
+		var key *big.Int
+		var ciphertext data.Vector
+		var xy *big.Int
+		b.Run("set_up", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				paillier, err = fullysec.NewPaillier(par.l, par.n, par.n * 4, par.bound, par.bound)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("key_gen", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				masterSecKey, masterPubKey, _ = paillier.GenerateMasterKeys()
+			}
+		})
+		b.Run("key_derive", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				key, err = paillier.DeriveKey(masterSecKey, y)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("encrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ciphertext, err = paillier.Encrypt(x, masterPubKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("decrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				xy, err = paillier.Decrypt(ciphertext, key, y)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+
+		})
+		assert.Equal(b, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
+	}
+}
+
+func BenchmarkSimpleDamgard(b *testing.B) {
+	params := []innerprodParams{
+		{n: 64, l: 20, bound: big.NewInt(100000),},
+		{n: 128, l: 20, bound: big.NewInt(10000),},
+		{n: 128, l: 200, bound: big.NewInt(10000),},
+		{n: 128, l: 20, bound: big.NewInt(100000),},
+		{n: 256, l: 20, bound: big.NewInt(10000),},
+	}
+
+	for _, par := range params {
+		sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
+		y, _ := data.NewRandomVector(par.l, sampler)
+		x, _ := data.NewRandomVector(par.l, sampler)
+		xyCheck, _ := x.Dot(y)
+		var err error
+		var damgard *simple.DDH
+		var masterSecKey data.Vector
+		var masterPubKey data.Vector
+		var key *big.Int
+		var ciphertext data.Vector
+		var xy *big.Int
+		b.Run("set_up", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				damgard, err = simple.NewDDH(par.l, par.n, par.bound)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("key_gen", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				masterSecKey, masterPubKey, _ = damgard.GenerateMasterKeys()
+			}
+		})
+		b.Run("key_derive", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				key, err = damgard.DeriveKey(masterSecKey, y)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("encrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ciphertext, err = damgard.Encrypt(x, masterPubKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("decrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				xy, err = damgard.Decrypt(ciphertext, key, y)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		assert.Equal(b, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
+	}
+}
+
+
+func BenchmarkSimpleLWE(b *testing.B) {
+	params := []innerprodParams{
+		{n: 64, l: 20, bound: big.NewInt(100000),},
+		{n: 128, l: 20, bound: big.NewInt(10000),},
+		{n: 128, l: 200, bound: big.NewInt(10000),},
+		{n: 128, l: 20, bound: big.NewInt(100000),},
+		//{n: 256, l: 20, bound: big.NewInt(10000),},
+	}
+
+	for _, par := range params {
+		sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
+		y, _ := data.NewRandomVector(par.l, sampler)
+		x, _ := data.NewRandomVector(par.l, sampler)
+		xyCheck, _ := x.Dot(y)
+		var err error
+		var lwe *simple.LWE
+		var masterSecKey data.Matrix
+		var masterPubKey data.Matrix
+		var key data.Vector
+		var ciphertext data.Vector
+		var xy *big.Int
+		b.Run("set_up", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				lwe, err = simple.NewLWE(par.l, par.bound, par.bound, par.n)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("key_gen", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				masterSecKey, _ = lwe.GenerateSecretKey()
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+				masterPubKey, _ = lwe.GeneratePublicKey(masterSecKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("key_derive", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				key, err = lwe.DeriveKey(y, masterSecKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("encrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ciphertext, err = lwe.Encrypt(x, masterPubKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+		b.Run("decrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				xy, err = lwe.Decrypt(ciphertext, key, y)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+
+		})
+		assert.Equal(b, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
+	}
+}
+
+
 
 //func testFullyDamgard(t *testing.T, par innerprodParams, x, y data.Vector, xyCheck *big.Int) {
 //	damgard, _ := fullysec.NewDamgard(par.l, par.n, par.bound)
