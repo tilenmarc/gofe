@@ -22,10 +22,10 @@ type innerprodParams struct {
 
 func BenchmarkFullyDamgard(b *testing.B) {
 	params := []innerprodParams{
-		{n: 64, l: 20, bound: big.NewInt(100000),},
-		{n: 128, l: 20, bound: big.NewInt(10000),},
-		{n: 128, l: 200, bound: big.NewInt(10000),},
-		{n: 128, l: 20, bound: big.NewInt(100000),},
+		//{n: 64, l: 20, bound: big.NewInt(100000),},
+		//{n: 128, l: 20, bound: big.NewInt(10000),},
+		//{n: 128, l: 160, bound: big.NewInt(10000),},
+		//{n: 128, l: 20, bound: big.NewInt(1000000),},
 		{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
@@ -85,10 +85,10 @@ func BenchmarkFullyDamgard(b *testing.B) {
 
 func BenchmarkFullyLWE(b *testing.B) {
 	params := []innerprodParams{
-		{n: 64, l: 20, bound: big.NewInt(100000),},
-		{n: 128, l: 20, bound: big.NewInt(10000),},
-		{n: 128, l: 200, bound: big.NewInt(10000),},
-		{n: 128, l: 20, bound: big.NewInt(100000),},
+		//{n: 64, l: 20, bound: big.NewInt(100000),},
+		//{n: 128, l: 20, bound: big.NewInt(10000),},
+		//{n: 128, l: 160, bound: big.NewInt(10000),},
+		//{n: 128, l: 20, bound: big.NewInt(1000000),},
 		//{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
@@ -156,10 +156,10 @@ func BenchmarkFullyLWE(b *testing.B) {
 
 func BenchmarkFullyPaillier(b *testing.B) {
 	params := []innerprodParams{
-		{n: 64, l: 20, bound: big.NewInt(100000),},
-		{n: 128, l: 20, bound: big.NewInt(10000),},
-		{n: 128, l: 200, bound: big.NewInt(10000),},
-		{n: 128, l: 20, bound: big.NewInt(100000),},
+		//{n: 64, l: 20, bound: big.NewInt(100000),},
+		//{n: 128, l: 20, bound: big.NewInt(10000),},
+		//{n: 128, l: 160, bound: big.NewInt(10000),},
+		//{n: 128, l: 20, bound: big.NewInt(1000000),},
 		{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
@@ -219,10 +219,10 @@ func BenchmarkFullyPaillier(b *testing.B) {
 
 func BenchmarkSimpleDamgard(b *testing.B) {
 	params := []innerprodParams{
-		{n: 64, l: 20, bound: big.NewInt(100000),},
-		{n: 128, l: 20, bound: big.NewInt(10000),},
-		{n: 128, l: 200, bound: big.NewInt(10000),},
-		{n: 128, l: 20, bound: big.NewInt(100000),},
+		//{n: 64, l: 20, bound: big.NewInt(100000),},
+		//{n: 128, l: 20, bound: big.NewInt(10000),},
+		//{n: 128, l: 160, bound: big.NewInt(10000),},
+		//{n: 128, l: 20, bound: big.NewInt(1000000),},
 		{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
@@ -282,10 +282,10 @@ func BenchmarkSimpleDamgard(b *testing.B) {
 
 func BenchmarkSimpleLWE(b *testing.B) {
 	params := []innerprodParams{
-		{n: 64, l: 20, bound: big.NewInt(100000),},
-		{n: 128, l: 20, bound: big.NewInt(10000),},
-		{n: 128, l: 200, bound: big.NewInt(10000),},
-		{n: 128, l: 20, bound: big.NewInt(100000),},
+		//{n: 64, l: 20, bound: big.NewInt(100000),},
+		//{n: 128, l: 20, bound: big.NewInt(10000),},
+		//{n: 128, l: 160, bound: big.NewInt(10000),},
+		//{n: 128, l: 20, bound: big.NewInt(1000000),},
 		//{n: 256, l: 20, bound: big.NewInt(10000),},
 	}
 
