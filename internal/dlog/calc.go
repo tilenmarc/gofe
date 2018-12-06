@@ -12,7 +12,7 @@ import (
 // exhaustive computation for practical purposes.
 // If Calc is configured to use a boundary value > MaxBound,
 // it will be automatically adjusted to MaxBound.
-var MaxBound = big.NewInt(1500000000)
+var MaxBound = big.NewInt(15000000000)
 
 // Calc represents a discrete logarithm calculator.
 type Calc struct{}
