@@ -22,7 +22,10 @@ func BenchmarkSgp(b *testing.B) {
 		//{n: 128, l: 20, bound: big.NewInt(10000),},
 		//{n: 128, l: 160, bound: big.NewInt(10000),},
 		//{n: 128, l: 20, bound: big.NewInt(1000000),},
-		{l: 20, bound: big.NewInt(100),},
+		{l: 10, bound: big.NewInt(100),},
+		{l: 10, bound: big.NewInt(1000),},
+		{l: 50, bound: big.NewInt(100),},
+
 	}
 
 	var err error

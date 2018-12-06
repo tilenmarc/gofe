@@ -8,6 +8,8 @@ import (
 	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/sample"
 	"github.com/stretchr/testify/assert"
+	"strings"
+	"strconv"
 )
 
 func TestAbe(t *testing.T) {
@@ -155,4 +157,120 @@ func TestGaussianElimintaion(t *testing.T) {
 	matWrong := make(data.Matrix, 0)
 	_, err = gaussianElimination(matWrong, v, p)
 	assert.Error(t, err)
+}
+
+
+
+// paramBounds holds the boundaries for acceptable mean
+// and variance values.
+type abeBenchParams struct {
+	l     int
+	gamma []int
+	boolExp string
+}
+
+func makeRange(min, max int) []int {
+	a := make([]int, max-min)
+	for i := range a {
+		a[i] = min + i
+	}
+	return a
+}
+
+func makeBool(l int) string {
+	ret := "0"
+	for i := 1; i < l; i++ {
+		ret = strings.Join([]string{"(", ret, ") AND ", strconv.Itoa(i)}, "")
+	}
+
+	return ret
+}
+
+
+func BenchmarkAbe(b *testing.B) {
+	params := []abeBenchParams{
+		{l: 10, gamma: makeRange(0, 10), boolExp: makeBool(10),},
+		{l: 100, gamma: makeRange(0, 100), boolExp: makeBool(100),},
+		{l: 1000, gamma: makeRange(0, 1000), boolExp: makeBool(1000),},
+	}
+
+	var err error
+	var a *Abe
+	var sk data.Vector
+	var pubKey *AbePubKey
+	var ciphertext *AbeCipher
+	var key data.VectorG1
+	var dec *bn256.GT
+	var msp *Msp
+	var abeKey *AbeKey
+	for _, par := range params {
+		//fmt.Println(par.gamma)
+		//fmt.Println(par.boolExp)
+		b.Run("set_up", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				a = newAbe(par.l)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+
+
+		sampler := sample.NewUniform(a.Params.p)
+		exponent, err := sampler.Sample()
+		if err != nil {
+			b.Fatalf("Failed to generate random values: %v", err)
+		}
+		msg := new(bn256.GT).ScalarBaseMult(exponent)
+
+
+		b.Run("key_gen", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				pubKey, sk, err = a.GenerateMasterKeys()
+			}
+		})
+
+		b.Run("boo to MSP", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				msp, err = BooleanToMsp(par.boolExp, a.Params.p)
+				if err != nil {
+					b.Fatalf("Failed to generate the policy: %v", err)
+				}
+			}
+		})
+
+		b.Run("encrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ciphertext, err = a.Encrypt(msg, par.gamma, pubKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+			}
+		})
+
+		b.Run("key_derive", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				key, err = a.KeyGen(msp, sk)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+				abeKey = a.DelagateKeys(key, msp, par.gamma)
+			}
+		})
+
+
+		b.Run("decrypt", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				dec, err = a.Decrypt(ciphertext, abeKey)
+				if err != nil {
+					b.Fatalf("Error: %v", err)
+				}
+
+			}
+
+		})
+
+		assert.Equal(b, msg, dec)
+
+	}
 }
