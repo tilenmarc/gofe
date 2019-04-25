@@ -24,18 +24,20 @@ import (
 	"github.com/fentec-project/gofe/innerprod/simple"
 	"github.com/fentec-project/gofe/sample"
 	"github.com/stretchr/testify/assert"
+	"fmt"
 )
 
 func TestSimple_LWE(t *testing.T) {
 	l := 4
 	n := 128
-	b := big.NewInt(10000)
+	sec := 80
+	b := big.NewInt(4)
 
 	x, y, xy := testVectorData(l, b, b)
 	emptyVec := data.Vector{}
 	emptyMat := data.Matrix{}
 
-	simpleLWE, err := simple.NewLWE(l, b, b, n)
+	simpleLWE, err := simple.NewLWE(l, b, b, n, sec)
 	assert.NoError(t, err)
 
 	SK, err := simpleLWE.GenerateSecretKey()
@@ -50,6 +52,7 @@ func TestSimple_LWE(t *testing.T) {
 	assert.Error(t, err)
 	_, err = simpleLWE.DeriveKey(y, emptyMat)
 	assert.Error(t, err)
+	fmt.Println(y)
 	skY, err := simpleLWE.DeriveKey(y, SK)
 	assert.NoError(t, err)
 
