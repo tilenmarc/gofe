@@ -25,6 +25,7 @@ import (
 	gofe "github.com/fentec-project/gofe/internal"
 	"github.com/fentec-project/gofe/sample"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 // lweParams represents parameters for the simple LWE scheme.
@@ -116,7 +117,7 @@ func NewLWE(l int, boundX, boundY *big.Int, n, sec int) (*LWE, error) {
 		//	break
 		//}
 	}
-	//fmt.Println(q, sigma, n, m, q.BitLen())
+	fmt.Println(q, sigma, n, m, q.BitLen())
 
 	//q1 := 65892041723782929777010111
 	//m1 := 11502

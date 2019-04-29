@@ -30,7 +30,7 @@ import (
 func TestSimple_LWE(t *testing.T) {
 	l := 4
 	n := 128
-	sec := 80
+	sec := 128
 	b := big.NewInt(4)
 
 	x, y, xy := testVectorData(l, b, b)
