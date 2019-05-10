@@ -27,6 +27,7 @@ import (
 	gofe "github.com/fentec-project/gofe/internal"
 	"github.com/fentec-project/gofe/sample"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 // lweParams represents parameters for the fully secure LWE scheme.
@@ -85,12 +86,19 @@ func NewLWE(l, n int, boundX, boundY *big.Int) (*LWE, error) {
 
 	nF := float64(n)
 
-	nBitsQ := 1
-	var sigma, sigma1, sigma2 *big.Float
+	var sigma, sigma1, sigma2, bound2 *big.Float
+	var m int
+	var q *big.Int
+	//boundXF := new(big.Float).SetInt(boundX)
+	boundYF := new(big.Float).SetInt(boundY)
+	//boundYSquaredF := new(big.Float).Mul(boundYF, boundYF)
+	b := float64(n) / 0.265
+	delta := math.Pow(math.Pow(math.Pi * b, 1 / b) * b / (2 * math.Pi * math.E), 1. / (2. * b - 2.))
 
 	// parameters for the scheme are given as a set of requirements in the paper
 	// hence we search for such parameters iteratively
-	for i := 1; true; i++ {
+	for i := 20; true; i++ {
+		fmt.Println(i)
 		//assuming that the final q will have at most i bits we calculate a bound
 		boundMF := float64(n * i)
 		// tmp values
@@ -124,42 +132,58 @@ func NewLWE(l, n int, boundX, boundY *big.Int) (*LWE, error) {
 		sigma1Square := new(big.Float).Mul(sigma1, sigma1)
 		sigma2Square := new(big.Float).Mul(sigma2, sigma2)
 
-		bound2 := new(big.Float).Add(sigma1Square, sigma2Square)
+		bound2 = new(big.Float).Add(sigma1Square, sigma2Square)
 		bound2.Sqrt(bound2)
 		bound2.Mul(bound2, big.NewFloat(math.Sqrt(nF)))
 
-		sigma = new(big.Float).Quo(big.NewFloat(1), kSquaredF)
-		sigma.Quo(sigma, bound2)
-		sigma.Quo(sigma, big.NewFloat(math.Log2(nF)))
+
+
+		sigma = new(big.Float).Quo(big.NewFloat(1), kF)
+		sigma.Quo(sigma, big.NewFloat(4 * math.Sqrt(nF)))
+		sigma.Quo(sigma, boundYF)
+		lTimesBound2 := new(big.Float).Mul(bound2, big.NewFloat(float64(l)))
+		lTimesBound2.Add(lTimesBound2, big.NewFloat(math.Sqrt(float64(l))))
+		sigma.Quo(sigma, lTimesBound2)
 
 		// assuming number of bits of q will be at least nBitsQ from the previous
 		// iteration (this is always true) we calculate sigma prime
 		nfPow6 := math.Pow(nF, 6)
-		nBitsQPow2 := math.Pow(float64(nBitsQ), 2)
+		nBitsQPow2 := math.Pow(float64(i), 2)
 		sqrtLog2nFPow5 := math.Pow(math.Sqrt(math.Log2(nF)), 5)
 		sigmaPrime := new(big.Float).Quo(sigma, kF)
 		sigmaPrime.Quo(sigmaPrime, big.NewFloat(nfPow6*nBitsQPow2*sqrtLog2nFPow5))
+		q, err := rand.Prime(rand.Reader, i)
+		if err != nil {
+			return nil, errors.Wrap(err,
+				"cannot generate parameters, generating a prime number failed")
+		}
+		m = int(1.01 * nF * float64(i))
 
-		boundForQ := new(big.Float)
-		boundForQ.Quo(big.NewFloat(math.Sqrt(math.Log2(nF))), sigmaPrime)
-		nBitsQ = boundForQ.MantExp(nil) + 1
-		// check if the number of bits for q is greater than i as it was
-		// assumed at the beginning of the iteration
-		if nBitsQ < i {
+		qF := new(big.Float).SetInt(q)
+		qFF, _ := qF.Float64()
+		safe := true
+		sigmaPrimeQ := new(big.Float).Mul(sigmaPrime, qF)
+		sigmaPrimeQF, _ := sigmaPrimeQ.Float64()
+
+		fmt.Println(q, sigmaPrimeQ, n, m)
+		fmt.Println(q.BitLen(), math.Log2(sigmaPrimeQF))
+		for mForTest := n; mForTest < m; mForTest++ {
+			d := n + mForTest
+			left := sigmaPrimeQF * math.Sqrt(b)
+			right := math.Pow(delta, 2 * b - float64(d) - 1) * math.Pow(qFF, float64(mForTest) / float64(d))
+			if left < right {
+				fmt.Println(mForTest)
+				safe = false
+				break
+			}
+		}
+		if safe {
 			break
 		}
-		// in the next iteration the number of bits for q must be at least as
-		// many as it was demanded in this iteration
-		i = nBitsQ
-	}
-	// get q
-	q, err := rand.Prime(rand.Reader, nBitsQ)
-	if err != nil {
-		return nil, errors.Wrap(err,
-			"cannot generate parameters, generating a prime number failed")
+
+
 	}
 
-	m := int(1.01 * nF * float64(nBitsQ))
 
 	// get sigmaQ
 	qF := new(big.Float).SetInt(q)
@@ -167,6 +191,10 @@ func NewLWE(l, n int, boundX, boundY *big.Int) (*LWE, error) {
 	// make it an integer for faster sampling using NormalDouble
 	sigmaQI, _ := sigmaQ.Int(nil)
 	sigmaQ.SetInt(sigmaQI)
+
+	fmt.Println(q, sigmaQ, n, m)
+
+
 
 	randMat, err := data.NewRandomMatrix(m, n, sample.NewUniform(q))
 	if err != nil {

@@ -57,12 +57,15 @@ type LWE struct {
 
 // NewLWE configures a new instance of the scheme.
 // It accepts the length of input vectors l, bound for coordinates of
-// input vectors x and y, the main security parameters n and m,
-// modulus for input data p, and modulus for ciphertext and keys q.
-// Security parameters are generated so that they satisfy theoretical
+// input vectors x and y, and the main security parameter n.
+// Additional parameters are generated so that they satisfy theoretical
 // bounds provided in the phd thesis Functional Encryption for
 // Inner-Product Evaluations, see Section 8.3.1 in
-// https://www.di.ens.fr/~fbourse/publications/Thesis.pdf
+// https://www.di.ens.fr/~fbourse/publications/Thesis.pdf and are
+// resistant to a practical so called primal attack at the underlining
+// LWE assumption. The latter is necessary since the originally suggested
+// parameters in the thesis do not provide claimed security against
+// mentioned attack.
 //
 // It returns an error in case public parameters of the scheme could
 // not be generated.
@@ -70,114 +73,57 @@ func NewLWE(l int, boundX, boundY *big.Int, n, sec int) (*LWE, error) {
 
 	b := float64(sec) / 0.265
 	delta := math.Pow(math.Pow(math.Pi * b, 1 / b) * b / (2 * math.Pi * math.E), 1. / (2. * b - 2.))
-	//fmt.Println(delta, b)
-	var q *big.Int
-	var p *big.Int
-	var sigma *big.Float
+	var q, p *big.Int
+	var qF, pF, sigmaQ *big.Float
 	var m int
-	i := 10
-	for {
-		//fmt.Println(i)
+	var safe bool
+	boundXF := new(big.Float).SetInt(boundX)
+	boundYF := new(big.Float).SetInt(boundY)
+	for i := 60; i < 1023; i++ {
 		q, _ = rand.Prime(rand.Reader, i)
 		m = (n + l + 1) * i + 2 * sec
 		p = new(big.Int).Mul(new(big.Int).Mul(boundX, boundY), big.NewInt(int64(l)))
-		qF := new(big.Float).SetInt(q)
-		pF :=new(big.Float).SetInt(p)
-		boundXF := new(big.Float).SetInt(boundX)
-		boundYF := new(big.Float).SetInt(boundY)
-		sigma = new(big.Float).Quo(qF, pF)
-		sigma.Quo(sigma, boundYF)
-		sigma.Quo(sigma, big.NewFloat(4 * math.Sqrt(float64(l * m * sec))))
-		sigmaPrime := new(big.Float).Quo(sigma, big.NewFloat(math.Sqrt(float64(l))))
+		qF = new(big.Float).SetInt(q)
+		pF =new(big.Float).SetInt(p)
+
+		sigmaQ = new(big.Float).Quo(qF, pF)
+		sigmaQ.Quo(sigmaQ, boundYF)
+		sigmaQ.Quo(sigmaQ, big.NewFloat(4 * math.Sqrt(float64(l * m * sec))))
+		sigmaPrime := new(big.Float).Quo(sigmaQ, big.NewFloat(math.Sqrt(float64(l))))
 		sigmaPrime.Quo(sigmaPrime, boundXF)
 
 		sigmaPrimeF, _ := sigmaPrime.Float64()
 
 		qFF, _ := qF.Float64()
-		safe := true
+		safe = true
 
 		for mForTest := n; mForTest < m; mForTest++ {
 			d := n + mForTest
 			left := sigmaPrimeF * math.Sqrt(b)
 			right := math.Pow(delta, 2 * b - float64(d) - 1) * math.Pow(qFF, float64(mForTest) / float64(d))
-
 			if left < right {
-				//fmt.Println(mForTest, left, right)
-				//fmt.Println(math.Pow(delta, 2 * b - float64(d) - 1), math.Pow(qFF, float64(mForTest) / float64(d)))
 				safe = false
 				break
 			}
 		}
 		if safe {
+			fmt.Println(math.Log2(sigmaPrimeF))
 			break
 		}
-		i++
-		//if i == 85 {
-		//	found = true
-		//	break
-		//}
 	}
-	fmt.Println(q, sigma, n, m, q.BitLen())
+	if safe == false {
+		return nil, fmt.Errorf("cannot generate public parameters")
+	}
 
-	//q1 := 65892041723782929777010111
-	//m1 := 11502
-	//sig1 := 5.89248970229e+18
-	//n1 := 128
-	//d := n + mForTest
-	//left := sigmaPrimeF * math.Sqrt(b)
-	//right := math.Pow(delta, 2 * b - float64(d) - 1) * math.Pow(qFF, float64(mForTest) / float64(d))
+	// make sigmaQ an integer for faster sampling using NormalDouble
+	sigmaQI, _ := sigmaQ.Int(nil)
+	sigmaQ.SetInt(sigmaQI)
+	sigmaQ.Add(sigmaQ, big.NewFloat(1))
 
-
-
-	// generate parameters
-	// p > boundX * boundY * l * 2
-
-
-	//nBitsP := boundX.BitLen() + boundY.BitLen() + bits.Len(uint(l)) + 2
-	//p, err := rand.Prime(rand.Reader, nBitsP)
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "cannot generate public parameters")
-	//}
-	//
-	//pF := new(big.Float).SetInt(p)
-	//boundXF := new(big.Float).SetInt(boundX)
-	//boundYF := new(big.Float).SetInt(boundY)
-	//
-	//val := new(big.Float).Mul(boundXF, big.NewFloat(math.Sqrt(float64(l))))
-	//val.Add(val, big.NewFloat(1))
-	//x := new(big.Float).Mul(val, pF)
-	//x.Mul(x, boundYF)
-	//x.Mul(x, big.NewFloat(float64(8*n)*math.Sqrt(float64(n+l+1))))
-	//xSqrt := new(big.Float).Sqrt(x)
-	//x.Mul(x, xSqrt)
-	//xI, _ := x.Int(nil)
-	//nBitsQ := xI.BitLen() + 1
-	//q, err := rand.Prime(rand.Reader, nBitsQ)
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "cannot generate public parameters")
-	//}
-	//
-	//m := (n+l+1)*nBitsQ + 2*n + 1
-	//
-	//sigma := new(big.Float)
-	//sigma.SetPrec(uint(n))
-	//sigma.Quo(big.NewFloat(1/(2*math.Sqrt(float64(2*l*m*n)))), pF)
-	//sigma.Quo(sigma, boundYF)
-	//qF := new(big.Float).SetInt(q)
-	//sigmaQ := new(big.Float).Mul(sigma, qF)
-	//// make it an integer for faster sampling using NormalDouble
-	sigmaQI, _ := sigma.Int(nil)
-	sigma.SetInt(sigmaQI)
-	sigma.Add(sigma, big.NewFloat(1))
-	//
-	//// sanity check if the parameters satisfy theoretical bounds
-	//val.Quo(sigmaQ, val)
-	//if val.Cmp(big.NewFloat(2*math.Sqrt(float64(n)))) < 1 {
-	//	return nil, fmt.Errorf("parameters generation faliled, sigmaQ too small")
-	//}
-	//
-	// generate a random matrix
-	A, err := data.NewRandomMatrix(m, n, sample.NewUniform(q))
+	fmt.Println(q.BitLen(), sigmaQI.BitLen())
+	// generate a random matrix; since this is a public parameter it can
+	// be generated using a pseudo-random generator with a random seed
+	A, err := data.NewRandomMatrix(m, n, sample.NewPseudoUniform(q))
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot generate public parameters")
 	}
@@ -191,7 +137,7 @@ func NewLWE(l int, boundX, boundY *big.Int, n, sec int) (*LWE, error) {
 			p:      p,
 			q:      q,
 			A:      A,
-			sigmaQ: sigma,
+			sigmaQ: sigmaQ,
 		},
 	}, nil
 }
@@ -349,6 +295,7 @@ func (s *LWE) Decrypt(ct, skY, y data.Vector) (*big.Int, error) {
 
 	// d will hold the decrypted message
 	d := new(big.Int).Sub(yDotCtLast, ct0DotSkY)
+	d.Mod(d, s.params.q)
 	// in case d > q/2 the result will be negative
 	if d.Cmp(halfQ) == 1 {
 		d.Sub(d, s.params.q)

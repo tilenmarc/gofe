@@ -28,9 +28,9 @@ import (
 
 func TestFullySec_LWE(t *testing.T) {
 	l := 4
-	n := 64
-	boundX := big.NewInt(1000) // maximal size of the entry of the message
-	boundY := big.NewInt(1000) // maximal size of the entry of the other operand for inner product
+	n := 8
+	boundX := big.NewInt(4) // maximal size of the entry of the message
+	boundY := big.NewInt(4) // maximal size of the entry of the other operand for inner product
 
 	x, y, xy := testVectorData(l, boundX, boundY)
 	emptyVec := data.Vector{}

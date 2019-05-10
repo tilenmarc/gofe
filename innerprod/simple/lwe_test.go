@@ -28,7 +28,7 @@ import (
 )
 
 func TestSimple_LWE(t *testing.T) {
-	l := 4
+	l := 5
 	n := 128
 	sec := 128
 	b := big.NewInt(4)
@@ -52,7 +52,6 @@ func TestSimple_LWE(t *testing.T) {
 	assert.Error(t, err)
 	_, err = simpleLWE.DeriveKey(y, emptyMat)
 	assert.Error(t, err)
-	fmt.Println(y)
 	skY, err := simpleLWE.DeriveKey(y, SK)
 	assert.NoError(t, err)
 
@@ -71,6 +70,7 @@ func TestSimple_LWE(t *testing.T) {
 	assert.Error(t, err)
 	xyDecrypted, err := simpleLWE.Decrypt(cipher, skY, y)
 	assert.NoError(t, err)
+	fmt.Println(xy, xyDecrypted)
 	assert.Equal(t, xy.Cmp(xyDecrypted), 0, "obtained incorrect inner product")
 }
 
@@ -78,8 +78,8 @@ func TestSimple_LWE(t *testing.T) {
 // elements up to the respective bound.
 // It also returns the dot product of the vectors.
 func testVectorData(len int, boundX, boundY *big.Int) (data.Vector, data.Vector, *big.Int) {
-	samplerX := sample.NewUniformRange(new(big.Int).Neg(boundX), boundX)
-	samplerY := sample.NewUniformRange(new(big.Int).Neg(boundY), boundY)
+	samplerX := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(boundX), big.NewInt(1)), boundX)
+	samplerY := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(boundX), big.NewInt(1)), boundY)
 	x, _ := data.NewRandomVector(len, samplerX)
 	y, _ := data.NewRandomVector(len, samplerY)
 	xy, _ := x.Dot(y)

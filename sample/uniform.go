@@ -20,6 +20,7 @@ import (
 	"math/big"
 
 	emmy "github.com/xlab-si/emmy/crypto/common"
+	"math/rand"
 )
 
 // UniformRange samples random values from the interval [min, max).
@@ -65,4 +66,25 @@ type Bit struct {
 // NewBit returns an instance of Bit sampler.
 func NewBit() *UniformRange {
 	return NewUniform(big.NewInt(2))
+}
+
+// PseudoUniform samples random values from the interval [0, max).
+type PseudoUniform struct {
+	max *big.Int
+	rnd *rand.Rand
+}
+
+// NewPseudoUniform returns an instance of the PseudoUniform sampler.
+// It accepts upper bounds on the sampled values.
+func NewPseudoUniform(max *big.Int) *PseudoUniform {
+	source := rand.NewSource(emmy.GetRandomInt(new(big.Int).Exp(big.NewInt(2), big.NewInt(63), nil)).Int64())
+	rnd := rand.New(source)
+	return &PseudoUniform{
+		max: max,
+		rnd: rnd,
+	}
+}
+
+func (u *PseudoUniform) Sample() (*big.Int, error) {
+	return new(big.Int).Rand(u.rnd, u.max), nil
 }
