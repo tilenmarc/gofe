@@ -67,14 +67,14 @@ type RingLWE struct {
 // any of these conditions is violated, or if public parameters
 // for the scheme cannot be generated for some other reason,
 // an error is returned.
-func NewRingLWE(l, n int, bound, p, q *big.Int, sigma *big.Float) (*RingLWE, error) {
-	// Ensure that p >= 2 * l * B² holds
-	bSquared := new(big.Int).Mul(bound, bound)
-	lTimesBsquared := new(big.Int).Mul(big.NewInt(int64(l)), bSquared)
-	twolTimesBsquared := new(big.Int).Mul(big.NewInt(2), lTimesBsquared)
-	if p.Cmp(twolTimesBsquared) < 0 {
-		return nil, fmt.Errorf("precondition violated: p >= 2*l*b² doesn't hold")
-	}
+func NewRingLWE(l, n int, bound, q *big.Int, sigma *big.Float) (*RingLWE, error) {
+	p := new(big.Int).Mul(bound, big.NewInt(int64(l * 2)))
+
+
+
+
+
+
 	if !isPowOf2(n) {
 		return nil, fmt.Errorf("security parameter n is not a power of 2")
 	}
