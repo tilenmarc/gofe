@@ -25,6 +25,8 @@ import (
 	gofe "github.com/fentec-project/gofe/internal"
 	"github.com/fentec-project/gofe/sample"
 	"github.com/pkg/errors"
+	"math"
+	"crypto/rand"
 )
 
 // RingLWEParams represents parameters for the ring LWE scheme.
@@ -35,7 +37,10 @@ type RingLWEParams struct {
 	N     int
 
 			 // Settings for discrete gaussian sampler
-	Sigma *big.Float // standard deviation
+	Sigma *big.Float // standard deviation for the security
+	Sigma1 *big.Float // standard deviation for the secret
+	Sigma2 *big.Float // standard deviation	for the first part of ciphertext
+	Sigma3 *big.Float // standard deviation for the second part of ciphertext
 
 	Bound *big.Int   // upper bound for coordinates of input vectors
 
@@ -52,7 +57,9 @@ type RingLWEParams struct {
 // ring of polynomials R = Z[x]/((x^n)+1).
 type RingLWE struct {
 	Params  *RingLWEParams
-	Sampler *sample.NormalCumulative
+	Sampler1 *sample.NormalDouble
+	Sampler2 *sample.NormalCumulative
+	Sampler3 *sample.NormalDouble
 }
 
 // NewRingLWE configures a new instance of the scheme.
@@ -67,13 +74,113 @@ type RingLWE struct {
 // any of these conditions is violated, or if public parameters
 // for the scheme cannot be generated for some other reason,
 // an error is returned.
-func NewRingLWE(l, n int, bound, q *big.Int, sigma *big.Float) (*RingLWE, error) {
+func NewRingLWE(l, sec int, bound *big.Int) (*RingLWE, error) {
 	p := new(big.Int).Mul(bound, big.NewInt(int64(l * 2)))
+	p.Mul(p, bound)
+	p.Add(p, big.NewInt(1))
+	pF := new(big.Float).SetInt(p)
+	boundF := new(big.Float).SetInt(bound)
 
+	b := float64(sec) / 0.265
+	//b := float64(sec) / 0.2075
+	fmt.Println("b", b)
+	delta := math.Pow(math.Pow(math.Pi * b, 1 / b) * b / (2 * math.Pi * math.E), 1. / (2. * b - 2.))
+	fmt.Println("delta", delta)
+	fmt.Println("p", p, p.BitLen())
+	var q *big.Int
+	var qF, sigma *big.Float
+	var sigmaF float64
+	var safe bool
+	var tmp float64;
+	var n int;
+	for pow := 6; pow < 20; pow++ {
+		n = 1<<uint(pow)
+		for i := 2 * p.BitLen(); i < 1024; i++ {
+			for {
+				//q, _ = rand.Prime(rand.Reader, i)
+				q, _ = rand.Int(rand.Reader, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i - pow)), nil))
+				q.Mul(q, big.NewInt(int64(2 * n)))
+				q.Add(q, big.NewInt(1))
+				if q.ProbablyPrime(20) == true {
+					break
+				}
+			}
 
+			qF = new(big.Float).SetInt(q)
 
+			tmp = math.Sqrt(float64(4*sec*l+1)) + 2*math.Sqrt(float64(2*sec))
+			tmp = tmp * 2 * float64(l) * math.Sqrt(float64(n*sec*2*l))
+			tmp = math.Sqrt(tmp)
 
+			sigma = new(big.Float).Quo(qF, pF)
+			sigma = sigma.Sqrt(sigma)
+			sigma.Quo(sigma, boundF)
+			sigma.Quo(sigma, big.NewFloat(tmp))
 
+			sigmaF, _ = sigma.Float64()
+			if sigmaF >= 1 {
+				break
+			}
+		}
+
+		//fmt.Println(sigmaF)
+
+		qFF, _ := qF.Float64()
+		//fmt.Println("kvocient", qFF/sigmaF)
+		safe = true
+
+		for mForTest := n; mForTest <= 2*n; mForTest++ {
+			d := n + mForTest
+			left := sigmaF * math.Sqrt(b)
+			right := math.Pow(delta, (2*b)-float64(d)-1) * math.Pow(qFF, float64(mForTest)/float64(d))
+			//fmt.Println(left, right)
+			//fmt.Println(right / left)
+			if left < right {
+				safe = false
+				break
+			}
+		}
+		if safe {
+			//fmt.Println(math.Log2(sigmaF))
+			break
+		}
+	}
+	if safe == false {
+		return nil, fmt.Errorf("cannot generate public parameters")
+	}
+
+	fmt.Println("n", n)
+
+	//// make sigmaQ an integer for faster sampling using NormalDouble
+	sigmaI, _ := sigma.Int(nil)
+	//sigma.SetInt(sigmaI)
+	//sigma.Add(sigma, big.NewFloat(1))
+
+	fmt.Println(q.BitLen(), sigmaI.BitLen(), sigma)
+
+	sigma1 := new(big.Float).Mul(sigma, boundF)
+	sigma1.Mul(sigma1, big.NewFloat(math.Sqrt(float64(2 * l))))
+	sigma1I, _ := sigma1.Int(nil)
+	sigma1.SetInt(sigma1I)
+	sigma2 := new(big.Float).Mul(sigma, big.NewFloat(math.Sqrt(2)))
+	sigma3 := new(big.Float).Mul(sigma2, sigma2)
+	sigma3.Mul(sigma3, big.NewFloat(float64(2 * n * l * sec)))
+	sigma3.Add(sigma3, big.NewFloat(1))
+	sigma3.Sqrt(sigma3)
+	sigma3.Mul(sigma3, sigma1)
+	sigma3I, _ := sigma3.Int(nil)
+	sigma3.SetInt(sigma3I)
+	fmt.Println(sigma1, sigma2, sigma3)
+
+	sampler1, err := sample.NewNormalDouble(sigma1, uint(n), big.NewFloat(1))
+	if err != nil {
+		return nil, err
+	}
+	sampler2 := sample.NewNormalCumulative(sigma2, uint(n), true)
+	sampler3, err := sample.NewNormalDouble(sigma3, uint(n), big.NewFloat(1))
+	if err != nil {
+		return nil, err
+	}
 
 	if !isPowOf2(n) {
 		return nil, fmt.Errorf("security parameter n is not a power of 2")
@@ -92,9 +199,14 @@ func NewRingLWE(l, n int, bound, q *big.Int, sigma *big.Float) (*RingLWE, error)
 			P:     p,
 			Q:     q,
 			Sigma: sigma,
+			Sigma1: sigma1,
+			Sigma2: sigma2,
+			Sigma3: sigma3,
 			A:     randVec,
 		},
-		Sampler: sample.NewNormalCumulative(sigma, uint(n), true),
+		Sampler1: sampler1,
+		Sampler2: sampler2,
+		Sampler3: sampler3,
 	}, nil
 }
 
@@ -116,7 +228,7 @@ func (s *RingLWE) center(X data.Matrix) data.Matrix {
 //
 // In case secret key could not be generated, it returns an error.
 func (s *RingLWE) GenerateSecretKey() (data.Matrix, error) {
-	return data.NewRandomMatrix(s.Params.L, s.Params.N, s.Sampler)
+	return data.NewRandomMatrix(s.Params.L, s.Params.N, s.Sampler1)
 }
 
 // GeneratePublicKey accepts a master secret key SK and generates a
@@ -129,7 +241,7 @@ func (s *RingLWE) GeneratePublicKey(SK data.Matrix) (data.Matrix, error) {
 	}
 	// Generate noise matrix
 	// Elements are sampled from the same distribution as the secret key S.
-	E, err := data.NewRandomMatrix(s.Params.L, s.Params.N, s.Sampler)
+	E, err := data.NewRandomMatrix(s.Params.L, s.Params.N, s.Sampler1)
 	if err != nil {
 		return nil, errors.Wrap(err, "public key generation failed")
 	}
@@ -188,12 +300,12 @@ func (s *RingLWE) Encrypt(X data.Matrix, PK data.Matrix) (data.Matrix, error) {
 	}
 
 	// Create a small random vector r
-	r, err := data.NewRandomVector(s.Params.N, s.Sampler)
+	r, err := data.NewRandomVector(s.Params.N, s.Sampler2)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in encrypt")
 	}
 	// Create noise matrix E to secure the encryption
-	E, err := data.NewRandomMatrix(s.Params.L, s.Params.N, s.Sampler)
+	E, err := data.NewRandomMatrix(s.Params.L, s.Params.N, s.Sampler3)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in encrypt")
 	}
@@ -214,7 +326,7 @@ func (s *RingLWE) Encrypt(X data.Matrix, PK data.Matrix) (data.Matrix, error) {
 
 	// Construct the last row of the cipher
 	ct1, _ := s.Params.A.MulAsPolyInRing(r)
-	e, err := data.NewRandomVector(s.Params.N, s.Sampler)
+	e, err := data.NewRandomVector(s.Params.N, s.Sampler2)
 	if err != nil {
 		return nil, errors.Wrap(err, "error in encrypt")
 	}
