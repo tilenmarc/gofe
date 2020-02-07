@@ -105,6 +105,7 @@ func (s *NormalDoubleConstant) Sample() (*big.Int, error) {
 		zeroCheck := int64(res.Sign()) + sign
 		// sample from Bernoulli to decide if accept
 		check, err = Bernoulli(checkVal, s.lSquareInv)
+		//check = true
 		if err != nil {
 			return nil, err
 		}

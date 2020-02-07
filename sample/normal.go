@@ -17,10 +17,10 @@
 package sample
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"math"
 	"math/big"
+	"encoding/binary"
+	"crypto/rand"
 )
 
 // Normal samples random values from the Normal (Gaussian)
@@ -113,7 +113,8 @@ func Bernoulli(t *big.Int, lSquareInv *big.Float) (bool, error) {
 	check2 := uint64(1) << (bitLenForSample + powOfAExponent + 1 - maxExp)
 
 	// constant time check if r1 < check1 && r2 < check2
-	return (cmpMask & (r1 - check1) & (r2 - check2)) > 0, nil
+	return (cmpMask & (r1 - check1) & (r2 - check2)) > 0 || powOfZ == 1, nil
+	return true, nil
 }
 
 // precompExp precomputes the values of exp(-2^i / 2 * sigma^2) needed

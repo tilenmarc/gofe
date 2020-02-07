@@ -21,56 +21,74 @@ import (
 	"testing"
 
 	"github.com/fentec-project/gofe/sample"
+	"time"
+	"os"
+	"strconv"
 )
 
 func TestNormalDoubleConstant(t *testing.T) {
-	sigmaCDTSquare := 0.84932180028801904272150283410
-	sigmaCDTSquare *= sigmaCDTSquare
-	var tests = []struct {
-		k      *big.Int
-		name   string
-		expect paramBounds
-	}{
-		{
-			name: "sigma= 1 * sqrt(1/(2*ln(2)))",
-			k:    big.NewInt(1),
-			expect: paramBounds{
-				meanLow:  -0.2,
-				meanHigh: 0.2,
-				varLow:   sigmaCDTSquare - 0.02,
-				varHigh:  sigmaCDTSquare + 0.02,
-			},
-		},
-		{
-			name: "sigma= 10 * sqrt(1/(2*ln(2)))",
-			k:    big.NewInt(10),
-			expect: paramBounds{
-				meanLow:  -2,
-				meanHigh: 2,
-				varLow:   100 * (sigmaCDTSquare - 0.02),
-				varHigh:  100 * (sigmaCDTSquare + 0.02),
-			},
-		},
-		{
-			name: "sigma= 1000 * sqrt(1/(2*ln(2)))",
-			k:    big.NewInt(1000),
-			expect: paramBounds{
-				meanLow:  -20,
-				meanHigh: 20,
-				varLow:   1000000 * (sigmaCDTSquare - 0.02),
-				varHigh:  1000000 * (sigmaCDTSquare + 0.02),
-			},
-		},
+	k := big.NewInt(50)
+	sampler := sample.NewNormalDoubleConstant(k)
+
+	f, err := os.Create("./times.txt")
+	if err != nil {
+		t.Fatalf("error : %v", err)
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			sampler := sample.NewNormalDoubleConstant(test.k)
-			testNormalSampler(
-				t,
-				sampler,
-				test.expect,
-			)
-		})
+		for i := 0; i < 1000000; i++ {
+			start := time.Now()
+			x, _ := sampler.Sample()
+			t := time.Now()
+			elapsed := t.Sub(start)
+			//fmt.Println(x, elapsed.Nanoseconds())
+			f.Write([]byte(x.String() + " " + strconv.Itoa(int(elapsed.Nanoseconds())) + "\n"))
+		}
+
+	f.Close()
+}
+
+func TestNormal_cdt(t *testing.T) {
+
+	sampler := sample.NewNormalCDT()
+
+	f, err := os.Create("./times.txt")
+	if err != nil {
+		t.Fatalf("error : %v", err)
 	}
+
+	for i := 0; i < 3000000; i++ {
+		start := time.Now()
+		x, _ := sampler.Sample()
+		t := time.Now()
+		elapsed := t.Sub(start)
+		//fmt.Println(x, elapsed.Nanoseconds())
+		f.Write([]byte(x.String() + " " + strconv.Itoa(int(elapsed.Nanoseconds())) + "\n"))
+	}
+
+	f.Close()
+}
+
+func TestNormalBenouli(t *testing.T) {
+
+	l := big.NewFloat(16)
+	lInv := new(big.Float).Quo(big.NewFloat(1), l)
+
+
+
+	f, err := os.Create("./times_bernouli.txt")
+	if err != nil {
+		t.Fatalf("error : %v", err)
+	}
+
+	for i := 0; i < 1000000; i++ {
+		start := time.Now()
+		x := new(big.Int).SetInt64(int64(i % 10))
+		sample.Bernoulli(x, lInv)
+		t := time.Now()
+		elapsed := t.Sub(start)
+		//fmt.Println(x, elapsed.Nanoseconds())
+		f.Write([]byte(x.String() + " " + strconv.Itoa(int(elapsed.Nanoseconds())) + "\n"))
+	}
+
+	f.Close()
 }
