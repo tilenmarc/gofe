@@ -21,6 +21,7 @@ import (
 	"math/big"
 
 	"github.com/fentec-project/bn256"
+	"github.com/fentec-project/gofe/internal"
 )
 
 // MaxBound limits the interval of values that are checked when
@@ -400,6 +401,209 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 	x := bn256.GetGTOne()
 	y := new(bn256.GT).Set(h)
 	z := new(bn256.GT).Neg(g)
+	z.ScalarMult(z, two)
+
+	bits := int64(c.m.BitLen())
+
+	T[x.String()] = big.NewInt(0)
+	x.Add(x, g)
+	j := big.NewInt(0)
+	giantStep := new(big.Int)
+	bound := new(big.Int)
+	for i := int64(0); i < bits; i++ {
+		// iteratively increasing giant step up to maximal value c.m
+		giantStep.Exp(two, big.NewInt(i+1), nil)
+		if giantStep.Cmp(c.m) > 0 {
+			giantStep.Set(c.m)
+			z.Neg(g)
+			z.ScalarMult(z, c.m)
+		}
+		// for the selected giant step, add all the needed small steps
+		for k := new(big.Int).Exp(two, big.NewInt(i), nil); k.Cmp(giantStep) < 0; k.Add(k, one) {
+			T[x.String()] = new(big.Int).Set(k)
+			x.Add(x, g)
+		}
+		// make giant steps and search for the solution
+		bound.Exp(two, big.NewInt(2*(i+1)), nil)
+		for ; j.Cmp(bound) < 0; j.Add(j, giantStep) {
+			if e, ok := T[y.String()]; ok {
+				retChan <- new(big.Int).Add(j, e)
+				errChan <- nil
+				return
+			}
+			y.Add(y, z)
+		}
+		z.Add(z, z)
+	}
+
+	retChan <- nil
+	errChan <- fmt.Errorf("failed to find the discrete logarithm within bound")
+}
+
+
+// CalcBN256 represents a calculator for discrete logarithms
+// that operates in the BN256 group.
+type CalcEC struct {
+	bound   *big.Int
+	m       *big.Int
+	Precomp map[string]*big.Int
+	neg     bool
+}
+
+// InBN256 builds parameters needed to calculate a discrete
+// logarithm in a pairing BN256 group.
+func (*Calc) InEC() *CalcEC {
+	m := new(big.Int).Sqrt(MaxBound)
+	m.Add(m, big.NewInt(1))
+	return &CalcEC{
+		bound: MaxBound,
+		m:     m,
+		neg:   false,
+	}
+}
+
+// WithBound sets a bound for the calculator of the discrete logarithm.
+func (c *CalcEC) WithBound(bound *big.Int) *CalcEC {
+	if bound != nil && bound.Cmp(MaxBound) < 0 {
+		m := new(big.Int).Sqrt(bound)
+		m.Add(m, big.NewInt(1))
+
+		return &CalcEC{
+			bound:   bound,
+			m:       m,
+			Precomp: c.Precomp,
+			neg:     c.neg,
+		}
+	}
+	return c
+}
+
+// WithNeg sets that the result should be searched also among
+// negative integers.
+func (c *CalcEC) WithNeg() *CalcEC {
+	return &CalcEC{
+		bound:   c.bound,
+		m:       c.m,
+		Precomp: c.Precomp,
+		neg:     true,
+	}
+}
+
+// precomputes candidates for discrete logarithm
+func (c *CalcEC) precompute(g *internal.Ec) {
+	one := big.NewInt(1)
+
+	// big.Int cannot be a key, thus we use a stringified bytes representation of the integer
+	T := make(map[string]*big.Int)
+	x := new(internal.Ec).Unit()
+
+	// remainders (r)
+	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
+		T[x.String()] = new(big.Int).Set(i)
+		x = new(internal.Ec).Add(x, g)
+	}
+
+	c.Precomp = T
+}
+
+//// BabyStepGiantStepStd implements the baby-step giant-step method to
+//// compute the discrete logarithm in the BN256.GT group.
+////
+//// It searches for a solution <= bound. If bound argument is nil,
+//// the bound is automatically set to the hard coded MaxBound.
+////
+//// The function returns x, where h = g^x in BN256.GT group where operations
+//// are written as multiplications. If the solution was not found
+//// within the provided bound, it returns an error.
+//func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
+//	one := big.NewInt(1)
+//
+//	// first part of the method can be reused so we
+//	// precompute it and save it for later
+//	if c.Precomp == nil {
+//		c.precompute(g)
+//	}
+//
+//	// if group is small, the list can be smaller
+//	precompLen := big.NewInt(int64(len(c.Precomp)))
+//	if c.m.Cmp(precompLen) != 0 {
+//		c.m.Set(precompLen)
+//	}
+//
+//	// z = g^-m
+//	gm := new(bn256.GT).ScalarMult(g, c.m)
+//	z := new(bn256.GT).Neg(gm)
+//	x := new(bn256.GT).Set(h)
+//	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
+//		if e, ok := c.Precomp[x.String()]; ok {
+//			return new(big.Int).Add(new(big.Int).Mul(i, c.m), e), nil
+//		}
+//		x.Add(x, z)
+//	}
+//
+//	return nil, fmt.Errorf("failed to find discrete logarithm within bound")
+//}
+
+// BabyStepGiantStep uses the baby-step giant-step method to
+// compute the discrete logarithm in the BN256.GT group. If c.neg is
+// set to true it searches for the answer within [-bound, bound].
+// It does so by running two goroutines, one for negative
+// answers and one for positive. If c.neg is set to false
+// only one goroutine is started, searching for the answer
+// within [0, bound].
+func (c *CalcEC) BabyStepGiantStep(h, g *internal.Ec) (*big.Int, error) {
+	// create goroutines calculating positive and possibly negative
+	// result if c.neg is set to true
+	retChan := make(chan *big.Int)
+	errChan := make(chan error)
+	go c.runBabyStepGiantStepIterative(h, g, retChan, errChan)
+	if c.neg {
+		gInv := new(internal.Ec).Neg(g)
+		go c.runBabyStepGiantStepIterative(h, gInv, retChan, errChan)
+	}
+
+	// catch a value when the first routine finishes
+	ret := <-retChan
+	err := <-errChan
+
+	// prevent the situation when one routine exhausted all possibilities
+	// before the second found the solution
+	if c.neg && err != nil {
+		ret = <-retChan
+		err = <-errChan
+	}
+	// if both routines give an error, return an error
+	if err != nil {
+		return nil, err
+	}
+	// based on ret decide which routine gave the answer, thus if
+	// answer is negative
+	if c.neg && h.String() != new(internal.Ec).ScalarMult(g, ret).String() {
+		ret.Neg(ret)
+	}
+
+	return ret, nil
+}
+
+// runBabyStepGiantStepIterative implements the baby-step giant-step method to
+// compute the discrete logarithm in the BN256.GT group. It is meant to be run
+// as a goroutine.
+//
+// The function searches for x, where h = g^x in BN256.GT group where operations
+// are written as multiplications. If the solution was not found
+// within the provided bound, it returns an error. In contrast to the usual
+// implementation of the method, this one proceeds iteratively, meaning that
+// smaller the solution is, faster the algorithm finishes.
+func (c *CalcEC) runBabyStepGiantStepIterative(h, g *internal.Ec, retChan chan *big.Int, errChan chan error) {
+	one := big.NewInt(1)
+	two := big.NewInt(2)
+
+	// bn256.GT cannot be a key, thus we use a stringified representation of the struct
+	T := make(map[string]*big.Int)
+	// prepare values for the loop
+	x := new(internal.Ec).Unit()
+	y := new(internal.Ec).Set(h)
+	z := new(internal.Ec).Neg(g)
 	z.ScalarMult(z, two)
 
 	bits := int64(c.m.BitLen())
