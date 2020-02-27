@@ -196,15 +196,15 @@ type DamgardSecKey struct {
 // GenerateMasterKeys generates a master secret key and master
 // public key for the scheme. It returns an error in case master keys
 // could not be generated.
-func (e *Damgard) GenerateMasterKeys() (*DamgardSecKey, data.Vector, error) {
+func (d *Damgard) GenerateMasterKeys() (*DamgardSecKey, data.Vector, error) {
 	// both part of masterSecretKey
-	mskS := make(data.Vector, e.Params.L)
-	mskT := make(data.Vector, e.Params.L)
+	mskS := make(data.Vector, d.Params.L)
+	mskT := make(data.Vector, d.Params.L)
 
-	masterPubKey := make([]*big.Int, e.Params.L)
-	sampler := sample.NewUniformRange(big.NewInt(2), e.Params.Q)
+	masterPubKey := make([]*big.Int, d.Params.L)
+	sampler := sample.NewUniformRange(big.NewInt(2), d.Params.Q)
 
-	for i := 0; i < e.Params.L; i++ {
+	for i := 0; i < d.Params.L; i++ {
 		s, err := sampler.Sample()
 		if err != nil {
 			return nil, nil, err
@@ -217,10 +217,10 @@ func (e *Damgard) GenerateMasterKeys() (*DamgardSecKey, data.Vector, error) {
 		}
 		mskT[i] = t
 
-		y1 := new(big.Int).Exp(e.Params.G, s, e.Params.P)
-		y2 := new(big.Int).Exp(e.Params.H, t, e.Params.P)
+		y1 := new(big.Int).Exp(d.Params.G, s, d.Params.P)
+		y2 := new(big.Int).Exp(d.Params.H, t, d.Params.P)
 
-		masterPubKey[i] = new(big.Int).Mod(new(big.Int).Mul(y1, y2), e.Params.P)
+		masterPubKey[i] = new(big.Int).Mod(new(big.Int).Mul(y1, y2), d.Params.P)
 
 	}
 
@@ -236,8 +236,8 @@ type DamgardDerivedKey struct {
 // DeriveKey takes master secret key and input vector y, and returns the
 // functional encryption key. In case the key could not be derived, it
 // returns an error.
-func (e *Damgard) DeriveKey(masterSecKey *DamgardSecKey, y data.Vector) (*DamgardDerivedKey, error) {
-	if err := y.CheckBound(e.Params.Bound); err != nil {
+func (d *Damgard) DeriveKey(masterSecKey *DamgardSecKey, y data.Vector) (*DamgardDerivedKey, error) {
+	if err := y.CheckBound(d.Params.Bound); err != nil {
 		return nil, err
 	}
 
@@ -251,20 +251,20 @@ func (e *Damgard) DeriveKey(masterSecKey *DamgardSecKey, y data.Vector) (*Damgar
 		return nil, err
 	}
 
-	k1 := new(big.Int).Mod(key1, e.Params.Q)
-	k2 := new(big.Int).Mod(key2, e.Params.Q)
+	k1 := new(big.Int).Mod(key1, d.Params.Q)
+	k2 := new(big.Int).Mod(key2, d.Params.Q)
 
 	return &DamgardDerivedKey{Key1: k1, Key2: k2}, nil
 }
 
 // Encrypt encrypts input vector x with the provided master public key.
 // It returns a ciphertext vector. If encryption failed, error is returned.
-func (e *Damgard) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
-	if err := x.CheckBound(e.Params.Bound); err != nil {
+func (d *Damgard) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
+	if err := x.CheckBound(d.Params.Bound); err != nil {
 		return nil, err
 	}
 
-	sampler := sample.NewUniformRange(big.NewInt(2), e.Params.Q)
+	sampler := sample.NewUniformRange(big.NewInt(2), d.Params.Q)
 	r, err := sampler.Sample()
 	if err != nil {
 		return nil, err
@@ -273,17 +273,17 @@ func (e *Damgard) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 	ciphertext := make([]*big.Int, len(x)+2)
 	// c = g^r
 	// dd = h^r
-	c := new(big.Int).Exp(e.Params.G, r, e.Params.P)
+	c := new(big.Int).Exp(d.Params.G, r, d.Params.P)
 	ciphertext[0] = c
-	dd := new(big.Int).Exp(e.Params.H, r, e.Params.P)
+	dd := new(big.Int).Exp(d.Params.H, r, d.Params.P)
 	ciphertext[1] = dd
 
 	for i := 0; i < len(x); i++ {
 		// e_i = h_i^r * g^x_i
 		// e_i = mpk[i]^r * g^x_i
-		t1 := new(big.Int).Exp(masterPubKey[i], r, e.Params.P)
-		t2 := internal.ModExp(e.Params.G, x[i], e.Params.P)
-		ct := new(big.Int).Mod(new(big.Int).Mul(t1, t2), e.Params.P)
+		t1 := new(big.Int).Exp(masterPubKey[i], r, d.Params.P)
+		t2 := internal.ModExp(d.Params.G, x[i], d.Params.P)
+		ct := new(big.Int).Mod(new(big.Int).Mul(t1, t2), d.Params.P)
 		ciphertext[i+2] = ct
 	}
 
@@ -293,33 +293,33 @@ func (e *Damgard) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 // Decrypt accepts the encrypted vector, functional encryption key, and
 // a plaintext vector y. It returns the inner product of x and y.
 // If decryption failed, error is returned.
-func (e *Damgard) Decrypt(cipher data.Vector, key *DamgardDerivedKey, y data.Vector) (*big.Int, error) {
-	if err := y.CheckBound(e.Params.Bound); err != nil {
+func (d *Damgard) Decrypt(cipher data.Vector, key *DamgardDerivedKey, y data.Vector) (*big.Int, error) {
+	if err := y.CheckBound(d.Params.Bound); err != nil {
 		return nil, err
 	}
 
 	num := big.NewInt(1)
 	for i, ct := range cipher[2:] {
-		t1 := internal.ModExp(ct, y[i], e.Params.P)
-		num = num.Mod(new(big.Int).Mul(num, t1), e.Params.P)
+		t1 := internal.ModExp(ct, y[i], d.Params.P)
+		num = num.Mod(new(big.Int).Mul(num, t1), d.Params.P)
 	}
 
-	t1 := new(big.Int).Exp(cipher[0], key.Key1, e.Params.P)
-	t2 := new(big.Int).Exp(cipher[1], key.Key2, e.Params.P)
+	t1 := new(big.Int).Exp(cipher[0], key.Key1, d.Params.P)
+	t2 := new(big.Int).Exp(cipher[1], key.Key2, d.Params.P)
 
-	denom := new(big.Int).Mod(new(big.Int).Mul(t1, t2), e.Params.P)
-	denomInv := new(big.Int).ModInverse(denom, e.Params.P)
-	r := new(big.Int).Mod(new(big.Int).Mul(num, denomInv), e.Params.P)
+	denom := new(big.Int).Mod(new(big.Int).Mul(t1, t2), d.Params.P)
+	denomInv := new(big.Int).ModInverse(denom, d.Params.P)
+	r := new(big.Int).Mod(new(big.Int).Mul(num, denomInv), d.Params.P)
 
-	bSquared := new(big.Int).Exp(e.Params.Bound, big.NewInt(2), big.NewInt(0))
-	bound := new(big.Int).Mul(big.NewInt(int64(e.Params.L)), bSquared)
+	bSquared := new(big.Int).Exp(d.Params.Bound, big.NewInt(2), big.NewInt(0))
+	bound := new(big.Int).Mul(big.NewInt(int64(d.Params.L)), bSquared)
 
-	calc, err := dlog.NewCalc().InZp(e.Params.P, e.Params.Q)
+	calc, err := dlog.NewCalc().InZp(d.Params.P, d.Params.Q)
 	if err != nil {
 		return nil, err
 	}
 	calc = calc.WithNeg()
 
-	res, err := calc.WithBound(bound).BabyStepGiantStep(r, e.Params.G)
+	res, err := calc.WithBound(bound).BabyStepGiantStep(r, d.Params.G)
 	return res, err
 }
