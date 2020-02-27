@@ -53,11 +53,11 @@ type ECIPE struct {
 
 // NewECIPE configures a new instance of the scheme.
 // It accepts the length of input vectors l and a bound by which
-// coordinates of input vectors are bounded.
+// the coordinates of input vectors are bounded.
 //
 // It returns an error in case the scheme could not be properly
-// configured, or if precondition 2 * l * bound² is >= order of the cyclic
-// group.
+// configured, or if precondition 2 * l * bound² is >= order of
+// the elliptic curve group.
 func NewECIPE(l int, bound *big.Int) (*ECIPE, error) {
 	order := internal.P.Params().N
 

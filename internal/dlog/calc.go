@@ -441,8 +441,8 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 }
 
 
-// CalcBN256 represents a calculator for discrete logarithms
-// that operates in the BN256 group.
+// CalcEC represents a calculator for discrete logarithms
+// that operates in the elliptic curve group.
 type CalcEC struct {
 	bound   *big.Int
 	m       *big.Int
@@ -450,8 +450,8 @@ type CalcEC struct {
 	neg     bool
 }
 
-// InBN256 builds parameters needed to calculate a discrete
-// logarithm in a pairing BN256 group.
+// InEC builds parameters needed to calculate a discrete
+// logarithm in an elliptic curve group.
 func (*Calc) InEC() *CalcEC {
 	m := new(big.Int).Sqrt(MaxBound)
 	m.Add(m, big.NewInt(1))
@@ -489,11 +489,11 @@ func (c *CalcEC) WithNeg() *CalcEC {
 	}
 }
 
-// precomputes candidates for discrete logarithm
+// precomputes candidates for discrete logarithm.
 func (c *CalcEC) precompute(g *internal.Ec) {
 	one := big.NewInt(1)
 
-	// big.Int cannot be a key, thus we use a stringified bytes representation of the integer
+	// internal.Ec cannot be a key, thus we use a stringified representation
 	T := make(map[string]*big.Int)
 	x := new(internal.Ec).Unit()
 
@@ -506,49 +506,49 @@ func (c *CalcEC) precompute(g *internal.Ec) {
 	c.Precomp = T
 }
 
-//// BabyStepGiantStepStd implements the baby-step giant-step method to
-//// compute the discrete logarithm in the BN256.GT group.
-////
-//// It searches for a solution <= bound. If bound argument is nil,
-//// the bound is automatically set to the hard coded MaxBound.
-////
-//// The function returns x, where h = g^x in BN256.GT group where operations
-//// are written as multiplications. If the solution was not found
-//// within the provided bound, it returns an error.
-//func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
-//	one := big.NewInt(1)
+// BabyStepGiantStepStd implements the baby-step giant-step method to
+// compute the discrete logarithm in the elliptic curve group.
 //
-//	// first part of the method can be reused so we
-//	// precompute it and save it for later
-//	if c.Precomp == nil {
-//		c.precompute(g)
-//	}
+// It searches for a solution <= bound. If bound argument is nil,
+// the bound is automatically set to the hard coded MaxBound.
 //
-//	// if group is small, the list can be smaller
-//	precompLen := big.NewInt(int64(len(c.Precomp)))
-//	if c.m.Cmp(precompLen) != 0 {
-//		c.m.Set(precompLen)
-//	}
-//
-//	// z = g^-m
-//	gm := new(bn256.GT).ScalarMult(g, c.m)
-//	z := new(bn256.GT).Neg(gm)
-//	x := new(bn256.GT).Set(h)
-//	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
-//		if e, ok := c.Precomp[x.String()]; ok {
-//			return new(big.Int).Add(new(big.Int).Mul(i, c.m), e), nil
-//		}
-//		x.Add(x, z)
-//	}
-//
-//	return nil, fmt.Errorf("failed to find discrete logarithm within bound")
-//}
+// The function returns x, where h = g^x (in the multiplicative
+// notation in the elliptic curve group). If the solution was not
+// found within the provided bound, it returns an error.
+func (c *CalcEC) BabyStepGiantStepStd(h, g *internal.Ec) (*big.Int, error) {
+	one := big.NewInt(1)
+
+	// first part of the method can be reused so we
+	// precompute it and save it for later
+	if c.Precomp == nil {
+		c.precompute(g)
+	}
+
+	// if the group is small, the list can be smaller
+	precompLen := big.NewInt(int64(len(c.Precomp)))
+	if c.m.Cmp(precompLen) != 0 {
+		c.m.Set(precompLen)
+	}
+
+	// z = g^-m
+	gm := new(internal.Ec).ScalarMult(g, c.m)
+	z := new(internal.Ec).Neg(gm)
+	x := new(internal.Ec).Set(h)
+	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
+		if e, ok := c.Precomp[x.String()]; ok {
+			return new(big.Int).Add(new(big.Int).Mul(i, c.m), e), nil
+		}
+		x.Add(x, z)
+	}
+
+	return nil, fmt.Errorf("failed to find discrete logarithm within bound")
+}
 
 // BabyStepGiantStep uses the baby-step giant-step method to
-// compute the discrete logarithm in the BN256.GT group. If c.neg is
-// set to true it searches for the answer within [-bound, bound].
-// It does so by running two goroutines, one for negative
-// answers and one for positive. If c.neg is set to false
+// compute the discrete logarithm in the elliptic curve group.
+// If c.neg is set to true it searches for the answer within
+// [-bound, bound]. It does so by running two goroutines, one for
+// negative answers and one for positive. If c.neg is set to false
 // only one goroutine is started, searching for the answer
 // within [0, bound].
 func (c *CalcEC) BabyStepGiantStep(h, g *internal.Ec) (*big.Int, error) {
@@ -586,10 +586,10 @@ func (c *CalcEC) BabyStepGiantStep(h, g *internal.Ec) (*big.Int, error) {
 }
 
 // runBabyStepGiantStepIterative implements the baby-step giant-step method to
-// compute the discrete logarithm in the BN256.GT group. It is meant to be run
+// compute the discrete logarithm in the elliptic group. It is meant to be run
 // as a goroutine.
 //
-// The function searches for x, where h = g^x in BN256.GT group where operations
+// The function searches for x, where h = g^x in the elliptic group where operations
 // are written as multiplications. If the solution was not found
 // within the provided bound, it returns an error. In contrast to the usual
 // implementation of the method, this one proceeds iteratively, meaning that
@@ -598,7 +598,7 @@ func (c *CalcEC) runBabyStepGiantStepIterative(h, g *internal.Ec, retChan chan *
 	one := big.NewInt(1)
 	two := big.NewInt(2)
 
-	// bn256.GT cannot be a key, thus we use a stringified representation of the struct
+	// internal.Ec cannot be a key, thus we use a stringified representation of the struct
 	T := make(map[string]*big.Int)
 	// prepare values for the loop
 	x := new(internal.Ec).Unit()

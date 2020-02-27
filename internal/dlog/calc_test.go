@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCalcZp_BabyStepGiantStep_ElGamal(t *testing.T) {
+func TestCalcZp_BabyStepGiantStep(t *testing.T) {
 	modulusLength := 128
 
 	key, err := keygen.NewElGamal(modulusLength)
@@ -102,4 +102,25 @@ func TestCalcBN256_BabyStepGiantStep(t *testing.T) {
 	}
 
 	assert.Equal(t, xCheck.Cmp(x), 0, "BabyStepGiantStep in BN256 returns wrong dlog")
+}
+
+func TestCalcEC_BabyStepGiantStep(t *testing.T) {
+	bound := big.NewInt(100000000)
+	sampler := sample.NewUniformRange(new(big.Int).Neg(bound), bound)
+
+	xCheck, err := sampler.Sample()
+	if err != nil {
+		t.Fatalf("error when generating random number: %v", err)
+	}
+
+	g := new(internal.Ec).Gen()
+	h := new(internal.Ec).ScalarMult(g, xCheck)
+
+	calc := NewCalc().InEC().WithBound(bound).WithNeg()
+	x, err := calc.BabyStepGiantStep(h, g)
+	if err != nil {
+		t.Fatalf("Error in baby step - giant step algorithm: %v", err)
+	}
+
+	assert.Equal(t, xCheck.Cmp(x), 0, "BabyStepGiantStep in the elliptic curve returns wrong dlog")
 }

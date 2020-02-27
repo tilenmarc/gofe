@@ -42,7 +42,7 @@ func TestFullySec_ec_ipe(t *testing.T) {
 		t.Fatalf("Error during keys generation: %v", err)
 	}
 
-	// sample a inner product vector y and derive a functional key for vector y
+	// sample an inner product vector y and derive a functional key for vector y
 	sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(bound), big.NewInt(1)), bound)
 	y, err := data.NewRandomVector(l, sampler)
 	if err != nil {
