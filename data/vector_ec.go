@@ -20,6 +20,8 @@ import (
 	"github.com/fentec-project/gofe/internal"
 )
 
-// Vector wraps a slice of *big.Int elements.
+// VectorEC wraps a slice of *internal.Ec elements,
+// i.e. it represents a vector of elements of an
+// elliptic curve.
 type VectorEC []*internal.Ec
 
