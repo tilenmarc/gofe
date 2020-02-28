@@ -33,7 +33,7 @@ type damgardTestParam struct {
 }
 
 func testFullySecDamgardDDHFromParam(t *testing.T, param damgardTestParam) {
-	l := 16
+	l := 10
 	bound := big.NewInt(1024)
 	sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(bound), big.NewInt(1)), bound)
 

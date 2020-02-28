@@ -29,7 +29,7 @@ import (
 
 func TestFullySec_ec_ipe(t *testing.T) {
 	// choose the parameters for the encryption and build the scheme
-	l := 1000
+	l := 10
 	bound := big.NewInt(1024)
 	ecipe, err := fullysec.NewECIPE(l, bound)
 	if err != nil {
