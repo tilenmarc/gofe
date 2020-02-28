@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/sample"
-	"github.com/fentec-project/gofe/quadratic"
 	"github.com/fentec-project/bn256"
 	"github.com/fentec-project/gofe/innerprod/fullysec"
 )
@@ -69,6 +68,7 @@ func TestBenchDMCFE(t *testing.T) {
 		//x, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
 		y := Yd[j]
 		x := Xd[j]
+
 		//xyCheck, _ := x[0].Dot(y[1])
 
 		clients := make([]*fullysec.DMCFEClient, par.l)
@@ -183,43 +183,61 @@ func TestBenchDMCFE(t *testing.T) {
 
 // todo: quad merge
 func TestBenchDecDam(t *testing.T) {
-	f, err := os.Create("benchmark_results_sgp.txt")
+	f, err := os.Create("benchmark_results_dec_dam.txt")
 	if err != nil {
 		t.Fatalf("Error: %v", err)
 
 	}
 
-	for j, par := range paramsQ {
+	for j, par := range paramsD {
 		//sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
 
 		//y, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
 		//x, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
-		y := Yq[j]
-		x := Xq[j]
-		ff := Fq[j]
+
+		yVecs := Yd[j]
+		y := make([]data.Matrix, maxnD)
+		for i := 0; i < maxnD; i++ {
+			yMat := make(data.Matrix, 1)
+			yMat[0] = yVecs[i]
+			y[i] = yMat.Transpose()
+		}
+
+		xVecs := Xd[j]
+		x := make([][]data.Vector, maxnD)
+		for i := 0; i < maxnD; i++ {
+			xVec := make([]data.Vector, par.l)
+			for k := 0; k < par.l; k++ {
+				xVec[k] = make(data.Vector, 1)
+				xVec[k][0] = xVecs[i][k]
+			}
+			x[i] = xVec
+		}
+
+
 		//xyCheck, _ := x[0].Dot(y[1])
 
+		clients := make([]*fullysec.DamgardDecMultiClient, par.l)
 		var err error
-		var scheme *quadratic.SGP
-		var masterSecKey *quadratic.SGPSecKey
-		key := make([]*bn256.G2, maxnQ)
-		ciphertext := make([]*quadratic.SGPCipher, maxnQ)
+		key := make([][]*fullysec.DamgardDecMultiDerivedKeyPart, maxnD)
+		ciphertext := make([][]data.Vector, maxnD)
+		pubKeys := make([]*big.Int, par.l)
+		secKeys := make([]*fullysec.DamgardDecMultiSecKey, par.l)
+		damg, _ := fullysec.NewDamgardMultiPrecomp(par.l, 1, 2048, par.bound)
 
 		//var xy *big.Int
 		var res testing.BenchmarkResult
 		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				scheme = quadratic.NewSGP(par.l, par.bound)
-			}
-		})
-		f.Write([]byte("S " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
-
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				masterSecKey, err = scheme.GenerateMasterKey()
-				if err != nil {
-					t.Fatalf("Error: %v", err)
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < par.l; i++ {
+					clients[i], err = fullysec.NewDamgardDecMultiClient(i, damg)
+					if err != nil {
+						t.Fatalf("could not instantiate fullysec.Client: %v", err)
+					}
+					secKeys[i], err = clients[i].GenerateKeys()
+					if err != nil {
+						t.Fatalf("could not instantiate fullysec.Client: %v", err)
+					}
 				}
 			}
 		})
@@ -227,15 +245,42 @@ func TestBenchDecDam(t *testing.T) {
 			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
 
 
+		for i := 0; i < par.l; i++ {
+			pubKeys[i] = clients[i].ClientPubKey
+		}
+
 		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				if i < maxnQ {
-					key[i], err = scheme.DeriveKey(masterSecKey, ff[i])
-				} else {
-					_, err = scheme.DeriveKey(masterSecKey, ff[i%maxnQ])
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < par.l; i++ {
+					clients[i].SetShare(pubKeys)
+					if err != nil {
+						t.Fatalf("Error: %v", err)
+					}
 				}
-				if err != nil {
-					t.Fatalf("Error: %v", err)
+			}
+		})
+		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+
+
+		res = testing.Benchmark(func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				if k < maxnQ {
+					key[k] = make([]*fullysec.DamgardDecMultiDerivedKeyPart, par.l)
+					for i := 0; i < par.l; i++ {
+						key[k][i], err = clients[i].DeriveKeyShare(secKeys[i], y[k])
+						if err != nil {
+							t.Fatalf("Error: %v", err)
+						}
+					}
+
+				} else {
+					for i := 0; i < par.l; i++ {
+						key[k%maxnD][i], err = clients[i].DeriveKeyShare(secKeys[i], y[k%maxnD])
+						if err != nil {
+							t.Fatalf("Error: %v", err)
+						}
+					}
 				}
 			}
 		})
@@ -244,23 +289,37 @@ func TestBenchDecDam(t *testing.T) {
 
 
 		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				if i < maxnQ {
-					ciphertext[i], err = scheme.Encrypt(x[i], y[i], masterSecKey)
+			for k := 0; k < b.N; k++ {
+				if k < maxnQ {
+					ciphertext[k] = make([]data.Vector, par.l)
+					for i := 0; i < par.l; i++ {
+						ciphertext[k][i], err = clients[i].Encrypt(x[k][i], secKeys[i])
+						if err != nil {
+							t.Fatalf("Error: %v", err)
+						}
+					}
+
 				} else {
-					_, err = scheme.Encrypt(x[i%maxnQ], y[i%maxnQ], masterSecKey)
-				}
-				if err != nil {
-					t.Fatalf("Error: %v", err)
+					for i := 0; i < par.l; i++ {
+						ciphertext[k%maxnD][i], err = clients[i].Encrypt(x[k%maxnD][i], secKeys[i])
+						if err != nil {
+							t.Fatalf("Error: %v", err)
+						}
+					}
 				}
 			}
 		})
 		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
 			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
 
+		bound :=  new(big.Int).Mul(par.bound, par.bound)
+		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
+
+		decryptor := fullysec.NewDamgardDecMultiDec(damg)
+
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err = scheme.Decrypt(ciphertext[i%maxnQ], key[i%maxnQ], ff[i%maxnQ])
+				_, err := decryptor.Decrypt(ciphertext[i%maxnD], key[i%maxnD], y[i%maxnD])
 				if err != nil {
 					t.Fatalf("Error: %v", err)
 				}
