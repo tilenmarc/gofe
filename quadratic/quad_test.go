@@ -26,50 +26,62 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSGP(t *testing.T) {
-	bound := big.NewInt(100)
-	sampler := sample.NewUniformRange(new(big.Int).Neg(bound), bound)
+func TestQuad(t *testing.T) {
+	// choose parameters for the encryption and build the scheme
 	n := 10
-	f, err := data.NewRandomMatrix(n, n, sampler)
+	m := 8
+	bound := big.NewInt(100)
+	q, err := quadratic.NewQuad(n, m, bound)
 	if err != nil {
-		t.Fatalf("error when generating random matrix: %v", err)
+		t.Fatalf("error when creating scheme: %v", err)
 	}
 
-	q := quadratic.NewSGP(n, bound)
-	msk, err := q.GenerateMasterKey()
+	// generate public and secret key
+	pubKey, secKey, err := q.GenerateKeys()
 	if err != nil {
-		t.Fatalf("error when generating master keys: %v", err)
+		t.Fatalf("error when generating keys: %v", err)
 	}
 
+	// sample vectors x and y that the encryptor will encrypt with public key;
+	boundNeg := new(big.Int).Add(new(big.Int).Neg(bound), big.NewInt(1))
+	sampler := sample.NewUniformRange(boundNeg, bound)
 	x, err := data.NewRandomVector(n, sampler)
 	if err != nil {
 		t.Fatalf("error when generating random vector: %v", err)
 	}
-	y, err := data.NewRandomVector(n, sampler)
+	y, err := data.NewRandomVector(m, sampler)
 	if err != nil {
 		t.Fatalf("error when generating random vector: %v", err)
 	}
-	//x[0].Set(big.NewInt(-10))
 
-	c, err := q.Encrypt(x, y, msk)
+	// simulate an encryptor that encrypts the two random vectors
+	encryptor := quadratic.NewQuadFromParams(q.Params)
+	c, err := encryptor.Encrypt(x, y, pubKey)
 	if err != nil {
 		t.Fatalf("error when encrypting: %v", err)
 	}
 
-	key, err := q.DeriveKey(msk, f)
+	// derive a functional encryption key for a random matrix f
+	f, err := data.NewRandomMatrix(n, m, sampler)
+	if err != nil {
+		t.Fatalf("error when generating random matrix: %v", err)
+	}
+	feKey, err := q.DeriveKey(secKey, f)
 	if err != nil {
 		t.Fatalf("error when deriving key: %v", err)
 	}
 
-	check, err := f.MulXMatY(x, y)
-	if err != nil {
-		t.Fatalf("error when computing x*F*y: %v", err)
-	}
-
-	dec, err := q.Decrypt(c, key, f)
+	// simulate a decryptor that using FE key decrypt the x^T * f * y
+	// without knowing x and y
+	dec, err := q.Decrypt(c, feKey, f)
 	if err != nil {
 		t.Fatalf("error when decrypting: %v", err)
 	}
 
+	// check the correctness of the result
+	check, err := f.MulXMatY(x, y)
+	if err != nil {
+		t.Fatalf("error when computing x*F*y: %v", err)
+	}
 	assert.Equal(t, check, dec, "Decryption wrong")
 }
