@@ -29,7 +29,7 @@ var params = []innerprodParams{
 	{l: 10, bound: big.NewInt(10),},
 	{l: 10, bound: big.NewInt(100),},
 	{l: 10, bound: big.NewInt(10000),},
-	{l: 10, bound: big.NewInt(100000),},
+	//{l: 10, bound: big.NewInt(100000),},
 }
 
 var maxN = 1

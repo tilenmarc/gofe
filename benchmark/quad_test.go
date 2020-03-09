@@ -3,13 +3,13 @@ package benchmark_test
 import (
 	"testing"
 	"math/big"
-
 	"os"
 	"strconv"
 	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/sample"
 	"github.com/fentec-project/gofe/quadratic"
 	"github.com/fentec-project/bn256"
+	"runtime"
 )
 
 // paramBounds holds the boundaries for acceptable mean
@@ -22,9 +22,9 @@ type quadParams struct {
 var paramsQ = []quadParams{
 	{l: 1, bound: big.NewInt(1000),},
 	{l: 5, bound: big.NewInt(1000),},
-	{l: 10, bound: big.NewInt(1000),},
-	{l: 20, bound: big.NewInt(1000),},
-	{l: 50, bound: big.NewInt(1000),},
+	//{l: 10, bound: big.NewInt(1000),},
+	//{l: 20, bound: big.NewInt(1000),},
+	//{l: 50, bound: big.NewInt(1000),},
 	//{l: 100, bound: big.NewInt(1000),},
 	//{l: 200, bound: big.NewInt(1000),},
 	//{l: 10, bound: big.NewInt(10),},
@@ -37,6 +37,7 @@ var paramsQ = []quadParams{
 var maxnQ = 1
 
 func genRandVecQ() ([]data.Matrix, []data.Matrix, [][]data.Matrix) {
+	runtime.GOMAXPROCS(1)
 	x := make([]data.Matrix, len(paramsQ))
 	y := make([]data.Matrix, len(paramsQ))
 	f := make([][]data.Matrix, len(paramsQ))
@@ -64,7 +65,8 @@ func TestBenchSGP(t *testing.T) {
 		t.Fatalf("Error: %v", err)
 
 	}
-
+	dec := big.NewInt(0)
+	sum := big.NewInt(0)
 	for j, par := range paramsQ {
 		//sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
 
@@ -94,7 +96,7 @@ func TestBenchSGP(t *testing.T) {
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				masterSecKey, err = damgard.GenerateMasterKey()
-				if err != nil {
+				if err == nil {
 					t.Fatalf("Error: %v", err)
 				}
 			}
@@ -136,10 +138,11 @@ func TestBenchSGP(t *testing.T) {
 
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err = damgard.Decrypt(ciphertext[i%maxnQ], key[i%maxnQ], ff[i%maxnQ])
+				dec, err = damgard.Decrypt(ciphertext[i%maxnQ], key[i%maxnQ], ff[i%maxnQ])
 				if err != nil {
 					t.Fatalf("Error: %v", err)
 				}
+				sum.Add(sum, dec)
 			}
 
 		})
@@ -152,9 +155,8 @@ func TestBenchSGP(t *testing.T) {
 	f.Close()
 }
 
-// todo: quad merge
 func TestBenchQuad(t *testing.T) {
-	f, err := os.Create("benchmark_results_sgp.txt")
+	f, err := os.Create("benchmark_results_quad.txt")
 	if err != nil {
 		t.Fatalf("Error: %v", err)
 
@@ -171,16 +173,17 @@ func TestBenchQuad(t *testing.T) {
 		//xyCheck, _ := x[0].Dot(y[1])
 
 		var err error
-		var damgard *quadratic.SGP
-		var masterSecKey *quadratic.SGPSecKey
-		key := make([]*bn256.G2, maxnQ)
-		ciphertext := make([]*quadratic.SGPCipher, maxnQ)
+		var damgard *quadratic.Quad
+		var masterSecKey *quadratic.QuadSecKey
+		var pubKey *quadratic.QuadPubKey
+		key := make([]data.VectorG2, maxnQ)
+		ciphertext := make([]*quadratic.QuadCipher, maxnQ)
 
 		//var xy *big.Int
 		var res testing.BenchmarkResult
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				damgard = quadratic.NewSGP(par.l, par.bound)
+				damgard, err = quadratic.NewQuad(par.l, par.l, par.bound)
 			}
 		})
 		f.Write([]byte("S " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
@@ -188,7 +191,7 @@ func TestBenchQuad(t *testing.T) {
 
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				masterSecKey, err = damgard.GenerateMasterKey()
+				pubKey, masterSecKey, err = damgard.GenerateKeys()
 				if err != nil {
 					t.Fatalf("Error: %v", err)
 				}
@@ -217,9 +220,9 @@ func TestBenchQuad(t *testing.T) {
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				if i < maxnQ {
-					ciphertext[i], err = damgard.Encrypt(x[i], y[i], masterSecKey)
+					ciphertext[i], err = damgard.Encrypt(x[i], y[i], pubKey)
 				} else {
-					_, err = damgard.Encrypt(x[i%maxnQ], y[i%maxnQ], masterSecKey)
+					_, err = damgard.Encrypt(x[i%maxnQ], y[i%maxnQ], pubKey)
 				}
 				if err != nil {
 					t.Fatalf("Error: %v", err)
