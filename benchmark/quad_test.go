@@ -21,16 +21,21 @@ type quadParams struct {
 
 var paramsQ = []quadParams{
 	{l: 1, bound: big.NewInt(100),},
+	{l: 2, bound: big.NewInt(100),},
 	{l: 5, bound: big.NewInt(100),},
 	{l: 10, bound: big.NewInt(100),},
 	{l: 20, bound: big.NewInt(100),},
-	//{l: 50, bound: big.NewInt(1000),},
-	//{l: 100, bound: big.NewInt(1000),},
-	//{l: 200, bound: big.NewInt(1000),},
+	{l: 50, bound: big.NewInt(100),},
+	////{l: 100, bound: big.NewInt(1000),},
+	////{l: 200, bound: big.NewInt(1000),},
 	{l: 10, bound: big.NewInt(10),},
+	{l: 10, bound: big.NewInt(20),},
+	{l: 10, bound: big.NewInt(50),},
 	//{l: 10, bound: big.NewInt(100),},
+	{l: 10, bound: big.NewInt(200),},
+	{l: 10, bound: big.NewInt(500),},
 	{l: 10, bound: big.NewInt(1000),},
-	//{l: 10, bound: big.NewInt(10000),},
+	{l: 10, bound: big.NewInt(2000),},
 	//{l: 10, bound: big.NewInt(100000),},
 }
 
