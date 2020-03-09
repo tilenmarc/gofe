@@ -20,16 +20,16 @@ type quadParams struct {
 }
 
 var paramsQ = []quadParams{
-	{l: 1, bound: big.NewInt(1000),},
-	{l: 5, bound: big.NewInt(1000),},
-	//{l: 10, bound: big.NewInt(1000),},
-	//{l: 20, bound: big.NewInt(1000),},
+	{l: 1, bound: big.NewInt(100),},
+	{l: 5, bound: big.NewInt(100),},
+	{l: 10, bound: big.NewInt(100),},
+	{l: 20, bound: big.NewInt(100),},
 	//{l: 50, bound: big.NewInt(1000),},
 	//{l: 100, bound: big.NewInt(1000),},
 	//{l: 200, bound: big.NewInt(1000),},
-	//{l: 10, bound: big.NewInt(10),},
+	{l: 10, bound: big.NewInt(10),},
 	//{l: 10, bound: big.NewInt(100),},
-	//{l: 10, bound: big.NewInt(1000),},
+	{l: 10, bound: big.NewInt(1000),},
 	//{l: 10, bound: big.NewInt(10000),},
 	//{l: 10, bound: big.NewInt(100000),},
 }
@@ -37,7 +37,7 @@ var paramsQ = []quadParams{
 var maxnQ = 1
 
 func genRandVecQ() ([]data.Matrix, []data.Matrix, [][]data.Matrix) {
-	runtime.GOMAXPROCS(1)
+	runtime.GOMAXPROCS(2)
 	x := make([]data.Matrix, len(paramsQ))
 	y := make([]data.Matrix, len(paramsQ))
 	f := make([][]data.Matrix, len(paramsQ))
