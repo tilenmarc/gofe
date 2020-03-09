@@ -96,7 +96,7 @@ func TestBenchSGP(t *testing.T) {
 		res = testing.Benchmark(func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				masterSecKey, err = damgard.GenerateMasterKey()
-				if err == nil {
+				if err != nil {
 					t.Fatalf("Error: %v", err)
 				}
 			}
