@@ -1,38 +1,41 @@
 package benchmark_test
 
 import (
-	"testing"
 	"math/big"
+	"testing"
 
-	"github.com/fentec-project/gofe/innerprod/fullysec"
 	"os"
 	"strconv"
+	"time"
+
 	"github.com/fentec-project/gofe/data"
+	"github.com/fentec-project/gofe/innerprod/fullysec"
 	"github.com/fentec-project/gofe/sample"
+	"fmt"
 )
 
 // paramBounds holds the boundaries for acceptable mean
 // and variance values.
 type innerprodParams struct {
-	l int
+	l     int
 	bound *big.Int
 }
 
 var params = []innerprodParams{
-	{l: 1, bound: big.NewInt(1000),},
-	{l: 5, bound: big.NewInt(1000),},
-	{l: 10, bound: big.NewInt(1000),},
-	{l: 20, bound: big.NewInt(1000),},
-	{l: 50, bound: big.NewInt(1000),},
-	{l: 100, bound: big.NewInt(1000),},
-	{l: 200, bound: big.NewInt(1000),},
-	{l: 10, bound: big.NewInt(10),},
-	{l: 10, bound: big.NewInt(100),},
-	{l: 10, bound: big.NewInt(10000),},
+	{l: 1, bound: big.NewInt(1000)},
+	{l: 5, bound: big.NewInt(1000)},
+	{l: 10, bound: big.NewInt(1000)},
+	{l: 20, bound: big.NewInt(1000)},
+	{l: 50, bound: big.NewInt(1000)},
+	{l: 100, bound: big.NewInt(1000)},
+	{l: 200, bound: big.NewInt(1000)},
+	{l: 10, bound: big.NewInt(10)},
+	{l: 10, bound: big.NewInt(100)},
+	{l: 10, bound: big.NewInt(10000)},
 	//{l: 10, bound: big.NewInt(100000),},
 }
 
-var maxN = 1
+var maxN = 100
 
 func genRandVec() ([]data.Matrix, []data.Matrix) {
 	x := make([]data.Matrix, len(params))
@@ -48,9 +51,6 @@ func genRandVec() ([]data.Matrix, []data.Matrix) {
 
 var X, Y = genRandVec()
 
-
-
-
 func TestBenchDam(t *testing.T) {
 	f, err := os.Create("benchmark_results_damgard.txt")
 	if err != nil {
@@ -59,96 +59,92 @@ func TestBenchDam(t *testing.T) {
 	}
 
 	for j, par := range params {
-		//sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
-
-		//y, _ := data.NewRandomMatrix(maxN, par.l, sampler)
-		//x, _ := data.NewRandomMatrix(maxN, par.l, sampler)
 		y := Y[j]
 		x := X[j]
-		//xyCheck, _ := x[0].Dot(y[1])
-
+		fmt.Println(y, x)
 		var err error
-		var damgard *fullysec.Damgard
-		var masterSecKey *fullysec.DamgardSecKey
-		var masterPubKey data.Vector
+		schemes := make([]*fullysec.Damgard, maxN)
+		masterSecKey := make([]*fullysec.DamgardSecKey, maxN)
+		masterPubKey := make([]data.Vector, maxN)
 		key := make([]*fullysec.DamgardDerivedKey, maxN)
 		ciphertext := make([]data.Vector, maxN)
 
 		//var xy *big.Int
-		var res testing.BenchmarkResult
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				damgard, err = fullysec.NewDamgardPrecomp(par.l, 2048, par.bound)
-				if err != nil {
-					t.Fatalf("Error: %v", err)
+		var res = make([]int64, maxN)
+		var start time.Time
+		var elapsed time.Duration
 
-				}
+		for i := 0; i < maxN; i++ {
+			start = time.Now()
+			schemes[i], err = fullysec.NewDamgardPrecomp(par.l, 2048, par.bound)
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+
+		}
 		f.Write([]byte("S " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				masterSecKey, masterPubKey, err = damgard.GenerateMasterKeys()
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+		for i := 0; i < maxN; i++ {
+			start = time.Now()
+			masterSecKey[i], masterPubKey[i], err = schemes[i].GenerateMasterKeys()
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+		}
 		f.Write([]byte("K " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
+		for i := 0; i < maxN; i++ {
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				if i < maxN {
-					key[i], err = damgard.DeriveKey(masterSecKey, y[i])
-				} else {
-					_, err = damgard.DeriveKey(masterSecKey, y[i%maxN])
-				}
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+			start = time.Now()
+			key[i], err = schemes[i].DeriveKey(masterSecKey[i], y[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+		}
+
 		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
+		for i := 0; i < maxN; i++ {
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				if i < maxN {
-					ciphertext[i], err = damgard.Encrypt(x[i], masterPubKey)
-				} else {
-					_, err = damgard.Encrypt(x[i%maxN], masterPubKey)
-				}
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+			start = time.Now()
+			ciphertext[i], err = schemes[i].Encrypt(x[i], masterPubKey[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+		}
 		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_, err = damgard.Decrypt(ciphertext[i%maxN], key[i%maxN], y[i%maxN])
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+		for i := 0; i < maxN; i++ {
+			start = time.Now()
+			_, err = schemes[i].Decrypt(ciphertext[i], key[i], y[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-
-		})
+		}
 
 		f.Write([]byte("D " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		//assert.Equal(t, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
 	}
 	f.Close()
 }
-
 
 func TestBenchEC(t *testing.T) {
 	f, err := os.Create("benchmark_results_ec.txt")
@@ -158,93 +154,105 @@ func TestBenchEC(t *testing.T) {
 	}
 
 	for j, par := range params {
-		//sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
-
-		//y, _ := data.NewRandomMatrix(maxN, par.l, sampler)
-		//x, _ := data.NewRandomMatrix(maxN, par.l, sampler)
-		//y := data.NewConstantMatrix(maxN, par.l, big.NewInt(1))
-		//x := data.NewConstantMatrix(maxN, par.l, big.NewInt(1))
 		y := Y[j]
 		x := X[j]
 		//xyCheck, _ := x[0].Dot(y[1])
+		fmt.Println(y, x)
 
 		var err error
-		var scheme *fullysec.ECIPE
-		var masterSecKey *fullysec.ECIPESecKey
-		var masterPubKey data.VectorEC
+		scheme := make([]*fullysec.ECIPE, maxN)
 		key := make([]*fullysec.ECIPEDerivedKey, maxN)
 		ciphertext := make([]data.VectorEC, maxN)
 
+		masterSecKey := make([]*fullysec.ECIPESecKey, maxN)
+		masterPubKey := make([]data.VectorEC, maxN)
+
+		var res = make([]int64, maxN)
+		var start time.Time
+		var elapsed time.Duration
 		//var xy *big.Int
-		var res testing.BenchmarkResult
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				scheme, err = fullysec.NewECIPE(par.l, par.bound)
-				if err != nil {
-					t.Fatalf("Error: %v", err)
+		for i := 0; i < maxN; i++ {
+			start = time.Now()
 
-				}
+			scheme[i], err = fullysec.NewECIPE(par.l, par.bound)
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+			if err != nil {
+				t.Fatalf("Error: %v", err)
+
 			}
-		})
+		}
 		f.Write([]byte("S " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				masterSecKey, masterPubKey, err = scheme.GenerateKeys()
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+		for i := 0; i < maxN; i++ {
+			start = time.Now()
+
+			masterSecKey[i], masterPubKey[i], err = scheme[i].GenerateKeys()
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+		}
+
 		f.Write([]byte("K " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				if i < maxN {
-					key[i], err = scheme.DeriveKey(masterSecKey, y[i])
-				} else {
-					_, err = scheme.DeriveKey(masterSecKey, y[i%maxN])
-				}
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+		for i := 0; i < maxN; i++ {
+
+			start = time.Now()
+			key[i], err = scheme[i].DeriveKey(masterSecKey[i], y[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+		}
+
 		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				if i < maxN {
-					ciphertext[i], err = scheme.Encrypt(x[i], masterPubKey)
-				} else {
-					_, err = scheme.Encrypt(x[i%maxN], masterPubKey)
-				}
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+		for i := 0; i < maxN; i++ {
+
+			start = time.Now()
+			ciphertext[i], err = scheme[i].Encrypt(x[i], masterPubKey[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-		})
+		}
 		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_, err = scheme.Decrypt(ciphertext[i%maxN], key[i%maxN], y[i%maxN])
-				if err != nil {
-					t.Fatalf("Error: %v", err)
-				}
+		for i := 0; i < maxN; i++ {
+			start = time.Now()
+			_, err = scheme[i].Decrypt(ciphertext[i], key[i], y[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
 			}
-
-		})
+		}
 
 		f.Write([]byte("D " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
 		//assert.Equal(t, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
 	}
 	f.Close()
 }
 
+func avgSlice(x []int64) int {
+
+	total := int64(0)
+	for _, valuex := range x {
+		total += valuex
+	}
+
+	return int(total / int64(len(x)))
+}

@@ -1,13 +1,12 @@
 package benchmark_test
 
 import (
-	"testing"
-	"github.com/fentec-project/gofe/internal"
-	"github.com/fentec-project/gofe/innerprod/fullysec"
 	"math/big"
+	"testing"
+
+	"github.com/fentec-project/gofe/innerprod/fullysec"
+	"github.com/fentec-project/gofe/internal"
 )
-
-
 
 func BenchmarkEC(b *testing.B) {
 	g := new(internal.Ec).Gen()
@@ -16,8 +15,8 @@ func BenchmarkEC(b *testing.B) {
 	b.Run("ECadd", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			g.Add(g, h)
-			}
-		})
+		}
+	})
 }
 
 func BenchmarkZp(b *testing.B) {

@@ -1,57 +1,56 @@
 package benchmark_test
 
 import (
-	"testing"
 	"math/big"
+	"testing"
 
 	"os"
 	"strconv"
-	"github.com/fentec-project/gofe/data"
-	"github.com/fentec-project/gofe/sample"
+
+	"time"
+
 	"github.com/fentec-project/bn256"
+	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/innerprod/fullysec"
+	"github.com/fentec-project/gofe/sample"
 )
 
 // paramBounds holds the boundaries for acceptable mean
 // and variance values.
 type decParams struct {
-	l int
+	l     int
 	bound *big.Int
 }
 
-var paramsD = []quadParams{
-	{l: 1, bound: big.NewInt(1000),},
-	{l: 5, bound: big.NewInt(1000),},
-	//{l: 10, bound: big.NewInt(1000),},
-	//{l: 20, bound: big.NewInt(1000),},
-	//{l: 50, bound: big.NewInt(1000),},
-	//{l: 100, bound: big.NewInt(1000),},
-	//{l: 200, bound: big.NewInt(1000),},
-	//{l: 10, bound: big.NewInt(10),},
-	//{l: 10, bound: big.NewInt(100),},
-	//{l: 10, bound: big.NewInt(1000),},
-	//{l: 10, bound: big.NewInt(10000),},
+var paramsD = []decParams{
+	{l: 1, bound: big.NewInt(1000)},
+	{l: 5, bound: big.NewInt(1000)},
+	{l: 10, bound: big.NewInt(1000)},
+	{l: 20, bound: big.NewInt(1000)},
+	{l: 50, bound: big.NewInt(1000)},
+	//{l: 100, bound: big.NewInt(1000)},
+	//{l: 200, bound: big.NewInt(1000)},
+	{l: 10, bound: big.NewInt(10)},
+	{l: 10, bound: big.NewInt(100)},
+	//{l: 10, bound: big.NewInt(10000)},
 	//{l: 10, bound: big.NewInt(100000),},
 }
 
-var maxnD = 1
+var maxnD = 100
 
 func genRandVecD() ([]data.Matrix, []data.Matrix) {
-	x := make([]data.Matrix, len(paramsQ))
-	y := make([]data.Matrix, len(paramsQ))
+	x := make([]data.Matrix, len(paramsD))
+	y := make([]data.Matrix, len(paramsD))
 
-	for i := 0; i < len(paramsQ); i++ {
-		var sampler = sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(paramsQ[i].bound), big.NewInt(1)), paramsQ[i].bound)
-		x[i], _ = data.NewRandomMatrix(maxnQ, paramsQ[i].l, sampler)
-		y[i], _ = data.NewRandomMatrix(maxnQ, paramsQ[i].l, sampler)
+	for i := 0; i < len(paramsD); i++ {
+		var sampler = sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(paramsD[i].bound), big.NewInt(1)), paramsD[i].bound)
+		x[i], _ = data.NewRandomMatrix(maxnQ, paramsD[i].l, sampler)
+		y[i], _ = data.NewRandomMatrix(maxnQ, paramsD[i].l, sampler)
 	}
 	return x, y
 }
 
 var Xd, Yd = genRandVecD()
-
-
-
 
 func TestBenchDMCFE(t *testing.T) {
 	f, err := os.Create("benchmark_results_dmcfe.txt")
@@ -61,122 +60,113 @@ func TestBenchDMCFE(t *testing.T) {
 	}
 
 	label := "bla"
-	for j, par := range paramsD {
-		//sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
+	for k, par := range paramsD {
 
-		//y, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
-		//x, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
-		y := Yd[j]
-		x := Xd[j]
+		y := Yd[k]
+		x := Xd[k]
 
-		//xyCheck, _ := x[0].Dot(y[1])
-
-		clients := make([]*fullysec.DMCFEClient, par.l)
-		var err error
+		clients := make([][]*fullysec.DMCFEClient, maxnD)
+		pubKeys := make([][]*bn256.G1, maxnD)
 		key := make([][]data.VectorG2, maxnD)
 		ciphertext := make([][]*bn256.G1, maxnD)
-		pubKeys := make([]*bn256.G1, par.l)
-
-		//var xy *big.Int
-		var res testing.BenchmarkResult
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < par.l; i++ {
-					clients[i], err = fullysec.NewDMCFEClient(i)
-					if err != nil {
-						t.Fatalf("could not instantiate fullysec.Client: %v", err)
-					}
-				}
-			}
-		})
-		f.Write([]byte("K " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
-
-
-		for i := 0; i < par.l; i++ {
-			pubKeys[i] = clients[i].ClientPubKey
+		for i := 0; i < maxnD; i++ {
+			clients[i] = make([]*fullysec.DMCFEClient, par.l)
+			pubKeys[i] = make([]*bn256.G1, par.l)
+			key[i] = make([]data.VectorG2, par.l)
+			ciphertext[i] = make([]*bn256.G1, par.l)
 		}
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < par.l; i++ {
-					clients[i].SetShare(pubKeys)
-					if err != nil {
-						t.Fatalf("Error: %v", err)
-					}
+		var err error
+
+		//var xy *big.Int
+		var res = make([]int64, maxnD)
+		var res2 = make([]int64, maxnD*par.l)
+		var start time.Time
+		var elapsed time.Duration
+
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+
+				start = time.Now()
+				clients[i][j], err = fullysec.NewDMCFEClient(j)
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
+				if err != nil {
+					t.Fatalf("could not instantiate fullysec.Client: %v", err)
 				}
 			}
-		})
-		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
 
+		}
+		f.Write([]byte("K1 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				if k < maxnQ {
-					key[k] = make([]data.VectorG2, par.l)
-					for i := 0; i < par.l; i++ {
-						key[k][i], err = clients[i].DeriveKeyShare(y[k])
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-
-				} else {
-					for i := 0; i < par.l; i++ {
-						key[k%maxnD][i], err = clients[i].DeriveKeyShare(y[k%maxnD])
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-				}
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				pubKeys[i][j] = clients[i][j].ClientPubKey
 			}
-		})
-		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+		}
 
-
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				if k < maxnQ {
-					ciphertext[k] = make([]*bn256.G1, par.l)
-					for i := 0; i < par.l; i++ {
-						ciphertext[k][i], err = clients[i].Encrypt(x[k][i], label)
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-
-				} else {
-					for i := 0; i < par.l; i++ {
-						ciphertext[k%maxnD][i], err = clients[i].Encrypt(x[k%maxnD][i], label)
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-				}
-			}
-		})
-		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
-
-		bound :=  new(big.Int).Mul(par.bound, par.bound)
-		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
-
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_, err := fullysec.DMCFEDecrypt(ciphertext[i%maxnD], key[i%maxnD], y[i%maxnD], label, bound)
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				start = time.Now()
+				clients[i][j].SetShare(pubKeys[i])
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
 				if err != nil {
 					t.Fatalf("Error: %v", err)
 				}
 			}
+		}
+		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
 
-		})
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				start = time.Now()
+				key[i][j], err = clients[i][j].DeriveKeyShare(y[i])
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
+				if err != nil {
+					t.Fatalf("Error: %v", err)
+				}
+			}
+		}
+
+		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
+
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				start = time.Now()
+				ciphertext[i][j], err = clients[i][j].Encrypt(x[i][j], label)
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
+				if err != nil {
+					t.Fatalf("Error: %v", err)
+				}
+			}
+		}
+
+		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
+
+		bound := new(big.Int).Mul(par.bound, par.bound)
+		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
+
+		for i := 0; i < maxnD; i++ {
+			start = time.Now()
+			_, err := fullysec.DMCFEDecrypt(ciphertext[i], key[i], y[i], label, bound)
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
+			}
+		}
 
 		f.Write([]byte("D " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		//assert.Equal(t, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
 	}
 	f.Close()
 }
@@ -189,13 +179,8 @@ func TestBenchDecDam(t *testing.T) {
 
 	}
 
-	for j, par := range paramsD {
-		//sampler := sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(par.bound), big.NewInt(1)), par.bound)
-
-		//y, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
-		//x, _ := data.NewRandomMatrix(maxnQ, par.l, sampler)
-
-		yVecs := Yd[j]
+	for k, par := range paramsD {
+		yVecs := Yd[k]
 		y := make([]data.Matrix, maxnD)
 		for i := 0; i < maxnD; i++ {
 			yMat := make(data.Matrix, 1)
@@ -203,7 +188,7 @@ func TestBenchDecDam(t *testing.T) {
 			y[i] = yMat.Transpose()
 		}
 
-		xVecs := Xd[j]
+		xVecs := Xd[k]
 		x := make([][]data.Vector, maxnD)
 		for i := 0; i < maxnD; i++ {
 			xVec := make([]data.Vector, par.l)
@@ -214,123 +199,121 @@ func TestBenchDecDam(t *testing.T) {
 			x[i] = xVec
 		}
 
-
 		//xyCheck, _ := x[0].Dot(y[1])
 
-		clients := make([]*fullysec.DamgardDecMultiClient, par.l)
 		var err error
-		key := make([][]*fullysec.DamgardDecMultiDerivedKeyPart, maxnD)
-		ciphertext := make([][]data.Vector, maxnD)
-		pubKeys := make([]*big.Int, par.l)
-		secKeys := make([]*fullysec.DamgardDecMultiSecKey, par.l)
-		damg, _ := fullysec.NewDamgardMultiPrecomp(par.l, 1, 2048, par.bound)
 
-		//var xy *big.Int
-		var res testing.BenchmarkResult
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < par.l; i++ {
-					clients[i], err = fullysec.NewDamgardDecMultiClient(i, damg)
-					if err != nil {
-						t.Fatalf("could not instantiate fullysec.Client: %v", err)
-					}
-					secKeys[i], err = clients[i].GenerateKeys()
-					if err != nil {
-						t.Fatalf("could not instantiate fullysec.Client: %v", err)
-					}
-				}
-			}
-		})
-		f.Write([]byte("K " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
-
-
-		for i := 0; i < par.l; i++ {
-			pubKeys[i] = clients[i].ClientPubKey
+		damg, err := fullysec.NewDamgardMultiPrecomp(par.l, 1, 2048, par.bound)
+		if err != nil {
+			t.Fatalf("could not instantiate damgard: %v", err)
 		}
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < par.l; i++ {
-					clients[i].SetShare(pubKeys)
-					if err != nil {
-						t.Fatalf("Error: %v", err)
-					}
+		clients := make([][]*fullysec.DamgardDecMultiClient, maxnD)
+		pubKeys := make([][]*big.Int, maxnD)
+		key := make([][]*fullysec.DamgardDecMultiDerivedKeyPart, maxnD)
+		ciphertext := make([][]data.Vector, maxnD)
+		secKeys := make([][]*fullysec.DamgardDecMultiSecKey, maxnD)
+		for i := 0; i < maxnD; i++ {
+			clients[i] = make([]*fullysec.DamgardDecMultiClient, par.l)
+			pubKeys[i] = make([]*big.Int, par.l)
+			key[i] = make([]*fullysec.DamgardDecMultiDerivedKeyPart, par.l)
+			ciphertext[i] = make([]data.Vector, par.l)
+			secKeys[i] = make([]*fullysec.DamgardDecMultiSecKey, par.l)
+		}
+
+
+		//var xy *big.Int
+		var res = make([]int64, maxnD)
+		var res2 = make([]int64, maxnD*par.l)
+		var start time.Time
+		var elapsed time.Duration
+
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+
+				start = time.Now()
+				clients[i][j], err = fullysec.NewDamgardDecMultiClient(j, damg)
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
+				if err != nil {
+					t.Fatalf("could not instantiate fullysec.Client: %v", err)
 				}
 			}
-		})
-		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
 
+		}
+		f.Write([]byte("K1 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
 
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				if k < maxnQ {
-					key[k] = make([]*fullysec.DamgardDecMultiDerivedKeyPart, par.l)
-					for i := 0; i < par.l; i++ {
-						key[k][i], err = clients[i].DeriveKeyShare(secKeys[i], y[k])
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-
-				} else {
-					for i := 0; i < par.l; i++ {
-						key[k%maxnD][i], err = clients[i].DeriveKeyShare(secKeys[i], y[k%maxnD])
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-				}
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				pubKeys[i][j] = clients[i][j].ClientPubKey
 			}
-		})
-		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+		}
 
-
-		res = testing.Benchmark(func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				if k < maxnQ {
-					ciphertext[k] = make([]data.Vector, par.l)
-					for i := 0; i < par.l; i++ {
-						ciphertext[k][i], err = clients[i].Encrypt(x[k][i], secKeys[i])
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-
-				} else {
-					for i := 0; i < par.l; i++ {
-						ciphertext[k%maxnD][i], err = clients[i].Encrypt(x[k%maxnD][i], secKeys[i])
-						if err != nil {
-							t.Fatalf("Error: %v", err)
-						}
-					}
-				}
-			}
-		})
-		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
-
-		bound :=  new(big.Int).Mul(par.bound, par.bound)
-		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
-
-		decryptor := fullysec.NewDamgardDecMultiDec(damg)
-
-		res = testing.Benchmark(func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_, err := decryptor.Decrypt(ciphertext[i%maxnD], key[i%maxnD], y[i%maxnD])
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				start = time.Now()
+				clients[i][j].SetShare(pubKeys[i])
+				secKeys[i][j], err = clients[i][j].GenerateKeys()
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
 				if err != nil {
 					t.Fatalf("Error: %v", err)
 				}
 			}
+		}
+		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
 
-		})
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				start = time.Now()
+				key[i][j], err = clients[i][j].DeriveKeyShare(secKeys[i][j], y[i])
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
+				if err != nil {
+					t.Fatalf("Error: %v", err)
+				}
+			}
+		}
+
+		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
+
+		for i := 0; i < maxnD; i++ {
+			for j := 0; j < par.l; j++ {
+				start = time.Now()
+				ciphertext[i][j], err = clients[i][j].Encrypt(x[i][j], secKeys[i][j])
+				elapsed = time.Since(start)
+				res2[i*par.l+j] = elapsed.Microseconds()
+				if err != nil {
+					t.Fatalf("Error: %v", err)
+				}
+			}
+		}
+
+		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
+			strconv.Itoa(avgSlice(res2)) + "\n"))
+
+		bound := new(big.Int).Mul(par.bound, par.bound)
+		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
+		decryptor := fullysec.NewDamgardDecMultiDec(damg)
+
+		for i := 0; i < maxnD; i++ {
+			start = time.Now()
+			_, err := decryptor.Decrypt(ciphertext[i], key[i], y[i])
+			elapsed = time.Since(start)
+			res[i] = elapsed.Microseconds()
+
+			if err != nil {
+				t.Fatalf("Error: %v", err)
+			}
+		}
 
 		f.Write([]byte("D " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(int(res.NsPerOp())) + " " + strconv.Itoa(int(res.N)) + "\n"))
+			strconv.Itoa(avgSlice(res)) + "\n"))
 
-		//assert.Equal(t, xy.Cmp(xyCheck), 0, "obtained incorrect inner product")
 	}
+
 	f.Close()
 }
