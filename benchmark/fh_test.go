@@ -1,7 +1,8 @@
 package benchmark_test
 
 import (
-"testing"
+	"fmt"
+	"testing"
 
 "os"
 "strconv"
@@ -24,6 +25,8 @@ func TestBenchFHIPE(t *testing.T) {
 	}
 
 	for j, par := range params {
+		fmt.Println(par.l, par.bound)
+
 		y := Y[j]
 		x := X[j]
 		var err error
@@ -118,6 +121,8 @@ func TestBenchFHMultiIPE(t *testing.T) {
 	}
 
 	for j, par := range params {
+		fmt.Println(par.l, par.bound)
+
 		y := Y[j]
 		x := X[j]
 		var err error
@@ -223,6 +228,8 @@ func TestBenchFHPartIPE(t *testing.T) {
 	}
 
 	for j, par := range params {
+		fmt.Println(par.l, par.bound)
+
 		y := Y[j]
 		x := X[j]
 		var err error

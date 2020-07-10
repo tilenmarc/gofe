@@ -35,7 +35,7 @@ var params = []innerprodParams{
 	//{l: 10, bound: big.NewInt(100000),},
 }
 
-var maxN = 100
+var maxN = 200
 
 func genRandVec() ([]data.Matrix, []data.Matrix) {
 	x := make([]data.Matrix, len(params))
@@ -59,9 +59,11 @@ func TestBenchDam(t *testing.T) {
 	}
 
 	for j, par := range params {
+		fmt.Println(par.l, par.bound)
+
 		y := Y[j]
 		x := X[j]
-		fmt.Println(y, x)
+		//fmt.Println(y, x)
 		var err error
 		schemes := make([]*fullysec.Damgard, maxN)
 		masterSecKey := make([]*fullysec.DamgardSecKey, maxN)
@@ -154,10 +156,11 @@ func TestBenchEC(t *testing.T) {
 	}
 
 	for j, par := range params {
+		fmt.Println(par.l, par.bound)
 		y := Y[j]
 		x := X[j]
 		//xyCheck, _ := x[0].Dot(y[1])
-		fmt.Println(y, x)
+		//fmt.Println(y, x)
 
 		var err error
 		scheme := make([]*fullysec.ECIPE, maxN)

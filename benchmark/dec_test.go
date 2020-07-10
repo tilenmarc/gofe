@@ -1,6 +1,7 @@
 package benchmark_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -28,15 +29,15 @@ var paramsD = []decParams{
 	{l: 10, bound: big.NewInt(1000)},
 	{l: 20, bound: big.NewInt(1000)},
 	{l: 50, bound: big.NewInt(1000)},
-	//{l: 100, bound: big.NewInt(1000)},
+	{l: 100, bound: big.NewInt(1000)},
 	//{l: 200, bound: big.NewInt(1000)},
 	{l: 10, bound: big.NewInt(10)},
 	{l: 10, bound: big.NewInt(100)},
-	//{l: 10, bound: big.NewInt(10000)},
+	{l: 10, bound: big.NewInt(10000)},
 	//{l: 10, bound: big.NewInt(100000),},
 }
 
-var maxnD = 100
+var maxnD = 200
 
 func genRandVecD() ([]data.Matrix, []data.Matrix) {
 	x := make([]data.Matrix, len(paramsD))
@@ -44,8 +45,8 @@ func genRandVecD() ([]data.Matrix, []data.Matrix) {
 
 	for i := 0; i < len(paramsD); i++ {
 		var sampler = sample.NewUniformRange(new(big.Int).Add(new(big.Int).Neg(paramsD[i].bound), big.NewInt(1)), paramsD[i].bound)
-		x[i], _ = data.NewRandomMatrix(maxnQ, paramsD[i].l, sampler)
-		y[i], _ = data.NewRandomMatrix(maxnQ, paramsD[i].l, sampler)
+		x[i], _ = data.NewRandomMatrix(maxnD, paramsD[i].l, sampler)
+		y[i], _ = data.NewRandomMatrix(maxnD, paramsD[i].l, sampler)
 	}
 	return x, y
 }
@@ -61,7 +62,7 @@ func TestBenchDMCFE(t *testing.T) {
 
 	label := "bla"
 	for k, par := range paramsD {
-
+		fmt.Println(par.l, par.bound)
 		y := Yd[k]
 		x := Xd[k]
 
@@ -98,7 +99,7 @@ func TestBenchDMCFE(t *testing.T) {
 
 		}
 		f.Write([]byte("K1 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		for i := 0; i < maxnD; i++ {
 			for j := 0; j < par.l; j++ {
@@ -118,7 +119,7 @@ func TestBenchDMCFE(t *testing.T) {
 			}
 		}
 		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		for i := 0; i < maxnD; i++ {
 			for j := 0; j < par.l; j++ {
@@ -133,7 +134,7 @@ func TestBenchDMCFE(t *testing.T) {
 		}
 
 		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		for i := 0; i < maxnD; i++ {
 			for j := 0; j < par.l; j++ {
@@ -148,7 +149,7 @@ func TestBenchDMCFE(t *testing.T) {
 		}
 
 		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		bound := new(big.Int).Mul(par.bound, par.bound)
 		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
@@ -165,7 +166,7 @@ func TestBenchDMCFE(t *testing.T) {
 		}
 
 		f.Write([]byte("D " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res)) + "\n"))
+			strconv.Itoa(avgSliceD(res)) + "\n"))
 
 	}
 	f.Close()
@@ -180,6 +181,7 @@ func TestBenchDecDam(t *testing.T) {
 	}
 
 	for k, par := range paramsD {
+		fmt.Println(par.l, par.bound)
 		yVecs := Yd[k]
 		y := make([]data.Matrix, maxnD)
 		for i := 0; i < maxnD; i++ {
@@ -242,7 +244,7 @@ func TestBenchDecDam(t *testing.T) {
 
 		}
 		f.Write([]byte("K1 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		for i := 0; i < maxnD; i++ {
 			for j := 0; j < par.l; j++ {
@@ -263,7 +265,7 @@ func TestBenchDecDam(t *testing.T) {
 			}
 		}
 		f.Write([]byte("K2 " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		for i := 0; i < maxnD; i++ {
 			for j := 0; j < par.l; j++ {
@@ -278,7 +280,7 @@ func TestBenchDecDam(t *testing.T) {
 		}
 
 		f.Write([]byte("F " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		for i := 0; i < maxnD; i++ {
 			for j := 0; j < par.l; j++ {
@@ -293,7 +295,7 @@ func TestBenchDecDam(t *testing.T) {
 		}
 
 		f.Write([]byte("E " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res2)) + "\n"))
+			strconv.Itoa(avgSliceD(res2)) + "\n"))
 
 		bound := new(big.Int).Mul(par.bound, par.bound)
 		bound.Mul(bound, big.NewInt(int64(par.l))) // numClients * (coordinate_bound)^2
@@ -311,9 +313,19 @@ func TestBenchDecDam(t *testing.T) {
 		}
 
 		f.Write([]byte("D " + strconv.Itoa(par.l) + " " + par.bound.String() + " " +
-			strconv.Itoa(avgSlice(res)) + "\n"))
+			strconv.Itoa(avgSliceD(res)) + "\n"))
 
 	}
 
 	f.Close()
+}
+
+func avgSliceD(x []int64) int {
+
+	total := int64(0)
+	for _, valuex := range x {
+		total += valuex
+	}
+
+	return int(total / int64(len(x)))
 }

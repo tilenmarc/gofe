@@ -1,6 +1,7 @@
 package benchmark_test
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -70,6 +71,8 @@ func TestBenchSGP(t *testing.T) {
 	}
 
 	for j, par := range paramsQ {
+		fmt.Println(par.l, par.bound)
+
 		y := Yq[j]
 		x := Xq[j]
 		ff := Fq[j]
@@ -163,6 +166,8 @@ func TestBenchQuad(t *testing.T) {
 	}
 
 	for j, par := range paramsQ {
+		fmt.Println(par.l, par.bound)
+
 		y := Yq[j]
 		x := Xq[j]
 		ff := Fq[j]
