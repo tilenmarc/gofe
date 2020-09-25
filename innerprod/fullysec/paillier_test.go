@@ -17,8 +17,10 @@
 package fullysec_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/innerprod/fullysec"
@@ -63,11 +65,25 @@ func TestFullySec_Paillier(t *testing.T) {
 
 	// simulate the instantiation of encryptor (which should be given masterPubKey)
 	encryptor := fullysec.NewPaillierFromParams(paillier.Params)
+	repeats := 100
 
-	ciphertext, err := encryptor.Encrypt(x, masterPubKey)
-	if err != nil {
-		t.Fatalf("Error during encryption: %v", err)
+	var res = make([]int64, repeats)
+	var start time.Time
+	var elapsed time.Duration
+	var ciphertext data.Vector
+
+	time_sum := int64(0)
+	for i:=0; i<repeats; i++ {
+		start = time.Now()
+		ciphertext, err = encryptor.Encrypt(x, masterPubKey)
+		elapsed = time.Since(start)
+		res[i] = elapsed.Microseconds()
+		time_sum += elapsed.Microseconds()
+		if err != nil {
+			t.Fatalf("Error during encryption: %v", err)
+		}
 	}
+	fmt.Println("it takes", time_sum / int64(repeats))
 
 	xy, err := paillier.Decrypt(ciphertext, key, y)
 	if err != nil {

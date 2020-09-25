@@ -191,6 +191,10 @@ func (s *Paillier) Encrypt(x, masterPubKey data.Vector) (data.Vector, error) {
 		return nil, err
 	}
 
+
+	r = new(big.Int).Set(big.NewInt(1000000000))
+
+
 	// encrypt x under randomness r
 	cipher := make(data.Vector, s.Params.L+1)
 	// c_0 = g^r in Z_n^2
