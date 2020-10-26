@@ -28,7 +28,7 @@ import (
 // exhaustive computation for practical purposes.
 // If Calc is configured to use a boundary value > MaxBound,
 // it will be automatically adjusted to MaxBound.
-var MaxBound = big.NewInt(15000000000)
+var MaxBound = new(big.Int).Exp(big.NewInt(2), big.NewInt(52), nil)
 
 // Calc represents a discrete logarithm calculator.
 type Calc struct{}
@@ -286,7 +286,7 @@ func (c *CalcBN256) WithNeg() *CalcBN256 {
 }
 
 // precomputes candidates for discrete logarithm
-func (c *CalcBN256) precompute(g *bn256.GT) {
+func (c *CalcBN256) Precompute(g *bn256.GT) {
 	one := big.NewInt(1)
 
 	// big.Int cannot be a key, thus we use a stringified bytes representation of the integer
@@ -315,9 +315,9 @@ func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
 	one := big.NewInt(1)
 
 	// first part of the method can be reused so we
-	// precompute it and save it for later
+	// Precompute it and save it for later
 	if c.Precomp == nil {
-		c.precompute(g)
+		c.Precompute(g)
 	}
 
 	// if group is small, the list can be smaller

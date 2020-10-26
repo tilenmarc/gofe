@@ -17,8 +17,11 @@
 package quadratic_test
 
 import (
+	"fmt"
+	"github.com/fentec-project/bn256"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/quadratic"
@@ -28,7 +31,7 @@ import (
 
 func TestSGP(t *testing.T) {
 	bound := big.NewInt(100)
-	sampler := sample.NewUniformRange(new(big.Int).Neg(bound), bound)
+	sampler := sample.NewUniform(bound)
 	n := 10
 	f, err := data.NewRandomMatrix(n, n, sampler)
 	if err != nil {
@@ -66,7 +69,19 @@ func TestSGP(t *testing.T) {
 		t.Fatalf("error when computing x*F*y: %v", err)
 	}
 
+	g1gen := new(bn256.G1).ScalarBaseMult(big.NewInt(1))
+	g2gen := new(bn256.G2).ScalarBaseMult(big.NewInt(1))
+	g := bn256.Pair(g1gen, g2gen)
+
+
+	bound2 := new(big.Int).Exp(big.NewInt(2), big.NewInt(40), nil)
+	q.GCalc = q.GCalc.WithBound(bound2)
+	q.GCalc.Precompute(g)
+
+	start := time.Now()
 	dec, err := q.Decrypt(c, key, f)
+	elapsed := time.Since(start)
+	fmt.Println(elapsed.Milliseconds())
 	if err != nil {
 		t.Fatalf("error when decrypting: %v", err)
 	}

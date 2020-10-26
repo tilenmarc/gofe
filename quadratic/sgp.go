@@ -219,10 +219,10 @@ func (q *SGP) Decrypt(c *SGPCipher, key *bn256.G2, F data.Matrix) (*big.Int, err
 	g2gen := new(bn256.G2).ScalarBaseMult(big.NewInt(1))
 	g := bn256.Pair(g1gen, g2gen)
 
-	// b: b = n^2 * b^3
-	b3 := new(big.Int).Exp(q.Bound, big.NewInt(3), nil)
-	n2 := new(big.Int).Exp(big.NewInt(int64(q.N)), big.NewInt(2), nil)
-	b := new(big.Int).Mul(n2, b3)
+	//// b: b = n^2 * b^3
+	//b3 := new(big.Int).Exp(q.Bound, big.NewInt(3), nil)
+	//n2 := new(big.Int).Exp(big.NewInt(int64(q.N)), big.NewInt(2), nil)
+	//b := new(big.Int).Mul(n2, b3)
 
-	return q.GCalc.WithBound(b).WithNeg().BabyStepGiantStep(prod, g)
+	return q.GCalc.BabyStepGiantStep(prod, g)
 }
