@@ -224,5 +224,5 @@ func (q *SGP) Decrypt(c *SGPCipher, key *bn256.G2, F data.Matrix) (*big.Int, err
 	//n2 := new(big.Int).Exp(big.NewInt(int64(q.N)), big.NewInt(2), nil)
 	//b := new(big.Int).Mul(n2, b3)
 
-	return q.GCalc.BabyStepGiantStep(prod, g)
+	return q.GCalc.BabyStepGiantStepStd(prod, g)
 }

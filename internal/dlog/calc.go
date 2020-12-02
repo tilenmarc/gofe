@@ -17,6 +17,7 @@
 package dlog
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"math/big"
 
@@ -294,9 +295,23 @@ func (c *CalcBN256) Precompute(g *bn256.GT) {
 	x := bn256.GetGTOne()
 
 	// remainders (r)
+	sh := sha1.New()
+	bits := 0
 	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
-		T[x.String()] = new(big.Int).Set(i)
-		x = new(bn256.GT).Add(x, g)
+		if i.BitLen() > bits {
+			bits = i.BitLen()
+			fmt.Println(bits)
+		}
+		//fmt.Println(sh.Sum([]byte(x.String())))
+		//fmt.Println(sh.Sum([]byte(x.String())))
+		//fmt.Println(len(sh.Sum([]byte(x.String()))))
+		//T[x.String()] = new(big.Int).Set(i)
+		sh.Write([]byte(x.String()))
+		//fmt.Println(len(sh.Sum(nil)), len(string(sh.Sum(nil))))
+
+		T[string(sh.Sum(nil)[:10])] = new(big.Int).Set(i)
+		sh.Reset()
+		x = x.Add(x, g)
 	}
 
 	c.Precomp = T
@@ -312,7 +327,7 @@ func (c *CalcBN256) Precompute(g *bn256.GT) {
 // are written as multiplications. If the solution was not found
 // within the provided bound, it returns an error.
 func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
-	one := big.NewInt(1)
+	//one := big.NewInt(1)
 
 	// first part of the method can be reused so we
 	// Precompute it and save it for later
@@ -326,18 +341,73 @@ func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
 		c.m.Set(precompLen)
 	}
 
+	quit := make(chan bool)
+	retChan := make(chan *big.Int)
+	errChan := make(chan error)
+	go c.runBabyStepGiantStepStdIterative(h, g, retChan, errChan, quit)
+	if c.neg {
+		hInv := new(bn256.GT).Neg(h)
+		go c.runBabyStepGiantStepStdIterative(hInv, g, retChan, errChan, quit)
+	}
+
+	// catch a value when the first routine finishes
+	ret := <-retChan
+	err := <-errChan
+
+	// prevent the situation when one routine exhausted all possibilities
+	// before the second found the solution
+	if c.neg && err != nil {
+		ret = <-retChan
+		err = <-errChan
+	}
+	quit <- true
+
+
+	// if both routines give an error, return an error
+	if err != nil {
+		return nil, err
+	}
+	// based on ret decide which routine gave the answer, thus if
+	// answer is negative
+	if c.neg && h.String() != new(bn256.GT).ScalarMult(g, ret).String() {
+		ret.Neg(ret)
+	}
+
+	return ret, nil
+
+	//return nil, fmt.Errorf("failed to find discrete logarithm within bound")
+}
+
+func (c *CalcBN256) runBabyStepGiantStepStdIterative(h, g *bn256.GT, retChan chan *big.Int, errChan chan error, quit chan bool) {
 	// z = g^-m
 	gm := new(bn256.GT).ScalarMult(g, c.m)
 	z := new(bn256.GT).Neg(gm)
 	x := new(bn256.GT).Set(h)
-	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
-		if e, ok := c.Precomp[x.String()]; ok {
-			return new(big.Int).Add(new(big.Int).Mul(i, c.m), e), nil
-		}
-		x.Add(x, z)
-	}
+	one := big.NewInt(1)
+	sh := sha1.New()
 
-	return nil, fmt.Errorf("failed to find discrete logarithm within bound")
+	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
+		select {
+		case <-quit:
+			//fmt.Println("quit1")
+			return
+		default:
+			//e, ok := c.Precomp[x.String()]
+			sh.Write([]byte(x.String()))
+			e, ok := c.Precomp[string(sh.Sum(nil)[:10])]
+			sh.Reset()
+			if ok {
+				//fmt.Println("step", i)
+				retChan <- new(big.Int).Add(new(big.Int).Mul(i, c.m), e)
+				errChan <- nil
+				return
+
+			}
+			x.Add(x, z)
+		}
+	}
+	retChan <- nil
+	errChan <- fmt.Errorf("failed to find the discrete logarithm within bound")
 }
 
 // BabyStepGiantStep uses the baby-step giant-step method to
@@ -352,10 +422,11 @@ func (c *CalcBN256) BabyStepGiantStep(h, g *bn256.GT) (*big.Int, error) {
 	// result if c.neg is set to true
 	retChan := make(chan *big.Int)
 	errChan := make(chan error)
-	go c.runBabyStepGiantStepIterative(h, g, retChan, errChan)
+	quit := make(chan bool)
+	go c.runBabyStepGiantStepIterative(h, g, retChan, errChan, quit)
 	if c.neg {
 		gInv := new(bn256.GT).Neg(g)
-		go c.runBabyStepGiantStepIterative(h, gInv, retChan, errChan)
+		go c.runBabyStepGiantStepIterative(h, gInv, retChan, errChan, quit)
 	}
 
 	// catch a value when the first routine finishes
@@ -368,6 +439,9 @@ func (c *CalcBN256) BabyStepGiantStep(h, g *bn256.GT) (*big.Int, error) {
 		ret = <-retChan
 		err = <-errChan
 	}
+
+	quit <- true
+
 	// if both routines give an error, return an error
 	if err != nil {
 		return nil, err
@@ -390,7 +464,7 @@ func (c *CalcBN256) BabyStepGiantStep(h, g *bn256.GT) (*big.Int, error) {
 // within the provided bound, it returns an error. In contrast to the usual
 // implementation of the method, this one proceeds iteratively, meaning that
 // smaller the solution is, faster the algorithm finishes.
-func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *big.Int, errChan chan error) {
+func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *big.Int, errChan chan error, quit chan bool) {
 	one := big.NewInt(1)
 	two := big.NewInt(2)
 
@@ -410,29 +484,38 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 	giantStep := new(big.Int)
 	bound := new(big.Int)
 	for i := int64(0); i < bits; i++ {
-		// iteratively increasing giant step up to maximal value c.m
-		giantStep.Exp(two, big.NewInt(i+1), nil)
-		if giantStep.Cmp(c.m) > 0 {
-			giantStep.Set(c.m)
-			z.Neg(g)
-			z.ScalarMult(z, c.m)
-		}
-		// for the selected giant step, add all the needed small steps
-		for k := new(big.Int).Exp(two, big.NewInt(i), nil); k.Cmp(giantStep) < 0; k.Add(k, one) {
-			T[x.String()] = new(big.Int).Set(k)
-			x.Add(x, g)
-		}
-		// make giant steps and search for the solution
-		bound.Exp(two, big.NewInt(2*(i+1)), nil)
-		for ; j.Cmp(bound) < 0; j.Add(j, giantStep) {
-			if e, ok := T[y.String()]; ok {
-				retChan <- new(big.Int).Add(j, e)
-				errChan <- nil
-				return
+		select {
+		case <-quit:
+			fmt.Println("quit1")
+			return
+		default:
+			// iteratively increasing giant step up to maximal value c.m
+			giantStep.Exp(two, big.NewInt(i+1), nil)
+			if giantStep.Cmp(c.m) > 0 {
+				giantStep.Set(c.m)
+				z.Neg(g)
+				z.ScalarMult(z, c.m)
 			}
-			y.Add(y, z)
+			// for the selected giant step, add all the needed small steps
+			for k := new(big.Int).Exp(two, big.NewInt(i), nil); k.Cmp(giantStep) < 0; k.Add(k, one) {
+				T[x.String()] = new(big.Int).Set(k)
+				x.Add(x, g)
+			}
+			// make giant steps and search for the solution
+			bound.Exp(two, big.NewInt(2*(i+1)), nil)
+			for ; j.Cmp(bound) < 0; j.Add(j, giantStep) {
+				if e, ok := T[y.String()]; ok {
+					fmt.Println("quit2")
+
+					retChan <- new(big.Int).Add(j, e)
+					errChan <- nil
+
+					return
+				}
+				y.Add(y, z)
+			}
+			z.Add(z, z)
 		}
-		z.Add(z, z)
 	}
 
 	retChan <- nil
