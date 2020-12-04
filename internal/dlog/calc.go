@@ -298,9 +298,10 @@ func (c *CalcBN256) Precompute(g *bn256.GT) {
 	sh := sha1.New()
 	bits := 0
 	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
+		fmt.Println(i)
 		if i.BitLen() > bits {
 			bits = i.BitLen()
-			fmt.Println(bits)
+			fmt.Println("bits", bits)
 		}
 		//fmt.Println(sh.Sum([]byte(x.String())))
 		//fmt.Println(sh.Sum([]byte(x.String())))
@@ -309,7 +310,7 @@ func (c *CalcBN256) Precompute(g *bn256.GT) {
 		sh.Write([]byte(x.String()))
 		//fmt.Println(len(sh.Sum(nil)), len(string(sh.Sum(nil))))
 
-		T[string(sh.Sum(nil)[:10])] = new(big.Int).Set(i)
+		T[string(sh.Sum(nil)[:8])] = new(big.Int).Set(i)
 		sh.Reset()
 		x = x.Add(x, g)
 	}
@@ -394,7 +395,7 @@ func (c *CalcBN256) runBabyStepGiantStepStdIterative(h, g *bn256.GT, retChan cha
 		default:
 			//e, ok := c.Precomp[x.String()]
 			sh.Write([]byte(x.String()))
-			e, ok := c.Precomp[string(sh.Sum(nil)[:10])]
+			e, ok := c.Precomp[string(sh.Sum(nil)[:8])]
 			sh.Reset()
 			if ok {
 				//fmt.Println("step", i)
