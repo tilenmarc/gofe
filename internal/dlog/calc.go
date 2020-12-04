@@ -298,7 +298,7 @@ func (c *CalcBN256) Precompute(g *bn256.GT) {
 	sh := sha1.New()
 	bits := 0
 	for i := big.NewInt(0); i.Cmp(c.m) < 0; i.Add(i, one) {
-		fmt.Println(i)
+		//fmt.Println(i)
 		if i.BitLen() > bits {
 			bits = i.BitLen()
 			fmt.Println("bits", bits)
@@ -487,7 +487,7 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 	for i := int64(0); i < bits; i++ {
 		select {
 		case <-quit:
-			fmt.Println("quit1")
+			//fmt.Println("quit1")
 			return
 		default:
 			// iteratively increasing giant step up to maximal value c.m
@@ -506,7 +506,7 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 			bound.Exp(two, big.NewInt(2*(i+1)), nil)
 			for ; j.Cmp(bound) < 0; j.Add(j, giantStep) {
 				if e, ok := T[y.String()]; ok {
-					fmt.Println("quit2")
+					//fmt.Println("quit2")
 
 					retChan <- new(big.Int).Add(j, e)
 					errChan <- nil
