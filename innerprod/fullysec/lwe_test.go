@@ -17,8 +17,10 @@
 package fullysec_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/fentec-project/gofe/data"
 	"github.com/fentec-project/gofe/innerprod/fullysec"
@@ -27,10 +29,11 @@ import (
 )
 
 func TestFullySec_LWE(t *testing.T) {
-	l := 4
-	n := 64
-	boundX := big.NewInt(1000) // maximal size of the entry of the message
-	boundY := big.NewInt(1000) // maximal size of the entry of the other operand for inner product
+	l := 64
+	n := 150
+
+	boundX := big.NewInt(1) // maximal size of the entry of the message
+	boundY := big.NewInt(1) // maximal size of the entry of the other operand for inner product
 
 	x, y, xy := testVectorData(l, boundX, boundY)
 	emptyVec := data.Vector{}
@@ -39,12 +42,16 @@ func TestFullySec_LWE(t *testing.T) {
 	fsLWE, err := fullysec.NewLWE(l, n, boundX, boundY)
 	assert.NoError(t, err)
 
+	start := time.Now()
 	Z, err := fsLWE.GenerateSecretKey()
-	assert.NoError(t, err)
+	//assert.NoError(t, err)
 
-	_, err = fsLWE.GeneratePublicKey(emptyMat)
-	assert.Error(t, err)
+	//_, err = fsLWE.GeneratePublicKey(emptyMat)
+	//assert.Error(t, err)
 	U, err := fsLWE.GeneratePublicKey(Z)
+	elapsed := time.Since(start)
+	fmt.Println("keygen", elapsed.Milliseconds())
+
 	assert.NoError(t, err)
 
 	_, err = fsLWE.DeriveKey(emptyVec, Z)
@@ -53,7 +60,10 @@ func TestFullySec_LWE(t *testing.T) {
 	assert.Error(t, err)
 	_, err = fsLWE.DeriveKey(y.MulScalar(big.NewInt(10000)), emptyMat)
 	assert.Error(t, err) // boundary violation
+	start = time.Now()
 	zY, err := fsLWE.DeriveKey(y, Z)
+	elapsed = time.Since(start)
+	fmt.Println("derivekey", elapsed.Milliseconds())
 	assert.NoError(t, err)
 
 	_, err = fsLWE.Encrypt(emptyVec, U)
@@ -62,7 +72,12 @@ func TestFullySec_LWE(t *testing.T) {
 	assert.Error(t, err)
 	_, err = fsLWE.Encrypt(x.MulScalar(big.NewInt(10000)), U)
 	assert.Error(t, err) // boundary violation
+
+	start = time.Now()
+
 	cipher, err := fsLWE.Encrypt(x, U)
+	elapsed = time.Since(start)
+	fmt.Println("encrypt", elapsed.Milliseconds())
 	assert.NoError(t, err)
 
 	_, err = fsLWE.Decrypt(emptyVec, zY, y)
@@ -73,7 +88,10 @@ func TestFullySec_LWE(t *testing.T) {
 	assert.Error(t, err)
 	_, err = fsLWE.Decrypt(cipher, zY, y.MulScalar(big.NewInt(10000)))
 	assert.Error(t, err) // boundary violation
+	start = time.Now()
 	xyDecrypted, err := fsLWE.Decrypt(cipher, zY, y)
+	elapsed = time.Since(start)
+	fmt.Println("decrypt", elapsed.Milliseconds())
 	assert.NoError(t, err)
 	assert.Equal(t, xy.Cmp(xyDecrypted), 0, "obtained incorrect inner product")
 }

@@ -18,6 +18,7 @@ package fullysec
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -183,6 +184,22 @@ func NewLWE(l, n int, boundX, boundY *big.Int) (*LWE, error) {
 	lSigmaQF := new(big.Float).Quo(sigmaQ, sample.SigmaCDT)
 	lSigmaQ, _ := lSigmaQF.Int(nil)
 	sigmaQ.Mul(sample.SigmaCDT, lSigmaQF)
+
+	fmt.Println(LWEParams{
+		L:       l,
+		N:       n,
+		M:       m,
+		BoundX:  boundX,
+		BoundY:  boundY,
+		Q:       q,
+		K:       K,
+		SigmaQ:  sigmaQ,
+		LSigmaQ: lSigmaQ,
+		Sigma1:  sigma1,
+		LSigma1: lSigma1,
+		Sigma2:  sigma2,
+		LSigma2: lSigma2,
+		})
 
 	randMat, err := data.NewRandomMatrix(m, n, sample.NewUniform(q))
 	if err != nil {
