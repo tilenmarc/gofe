@@ -342,9 +342,10 @@ func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
 		c.m.Set(precompLen)
 	}
 
-	quit := make(chan bool)
-	retChan := make(chan *big.Int)
-	errChan := make(chan error)
+	quit := make(chan bool, 2)
+	retChan := make(chan *big.Int, 2)
+	errChan := make(chan error, 2)
+
 	go c.runBabyStepGiantStepStdIterative(h, g, retChan, errChan, quit)
 	if c.neg {
 		hInv := new(bn256.GT).Neg(h)
@@ -363,7 +364,6 @@ func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
 	}
 	quit <- true
 
-
 	// if both routines give an error, return an error
 	if err != nil {
 		return nil, err
@@ -375,8 +375,6 @@ func (c *CalcBN256) BabyStepGiantStepStd(h, g *bn256.GT) (*big.Int, error) {
 	}
 
 	return ret, nil
-
-	//return nil, fmt.Errorf("failed to find discrete logarithm within bound")
 }
 
 func (c *CalcBN256) runBabyStepGiantStepStdIterative(h, g *bn256.GT, retChan chan *big.Int, errChan chan error, quit chan bool) {
@@ -398,9 +396,9 @@ func (c *CalcBN256) runBabyStepGiantStepStdIterative(h, g *bn256.GT, retChan cha
 			e, ok := c.Precomp[string(sh.Sum(nil)[:8])]
 			sh.Reset()
 			if ok {
-				//fmt.Println("step", i)
 				retChan <- new(big.Int).Add(new(big.Int).Mul(i, c.m), e)
 				errChan <- nil
+
 				return
 
 			}
@@ -421,9 +419,10 @@ func (c *CalcBN256) runBabyStepGiantStepStdIterative(h, g *bn256.GT, retChan cha
 func (c *CalcBN256) BabyStepGiantStep(h, g *bn256.GT) (*big.Int, error) {
 	// create goroutines calculating positive and possibly negative
 	// result if c.neg is set to true
-	retChan := make(chan *big.Int)
-	errChan := make(chan error)
-	quit := make(chan bool)
+	retChan := make(chan *big.Int, 2)
+	errChan := make(chan error, 2)
+	quit := make(chan bool, 2)
+
 	go c.runBabyStepGiantStepIterative(h, g, retChan, errChan, quit)
 	if c.neg {
 		gInv := new(bn256.GT).Neg(g)
@@ -487,7 +486,6 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 	for i := int64(0); i < bits; i++ {
 		select {
 		case <-quit:
-			//fmt.Println("quit1")
 			return
 		default:
 			// iteratively increasing giant step up to maximal value c.m
@@ -510,7 +508,6 @@ func (c *CalcBN256) runBabyStepGiantStepIterative(h, g *bn256.GT, retChan chan *
 
 					retChan <- new(big.Int).Add(j, e)
 					errChan <- nil
-
 					return
 				}
 				y.Add(y, z)

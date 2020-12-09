@@ -40,19 +40,20 @@ func TestSGP(t *testing.T) {
 	g := bn256.Pair(g1gen, g2gen)
 
 
-	bound2 := new(big.Int).Exp(big.NewInt(2), big.NewInt(46), nil)
+	bound2 := new(big.Int).Exp(big.NewInt(2), big.NewInt(36), nil)
 	q.GCalc = q.GCalc.WithBound(bound2).WithNeg()
 	q.GCalc.Precompute(g)
 	fmt.Println("started")
 
-	num_repeats := 100
+	num_repeats := 10
 
 	params := [][2]int{{5, 100}, {20, 100}, {1, 500}, {1, 1000}, {20, 1000}}
+	//params := [][2]int{{1, 500}, {1, 1}, {2, 1}}
 
 	for _, e := range params {
 		n = e[0]
 		q.N = e[0]
-		bound.SetInt64(int64(e[1]))
+		bound.SetInt64(1)
 		sampler := sample.NewUniformRange(new(big.Int).Neg(bound), bound)
 
 		avg := int64(0)
@@ -98,7 +99,7 @@ func TestSGP(t *testing.T) {
 			dec, err := q.Decrypt(c, key, f)
 			elapsed := time.Since(start)
 			avg += elapsed.Milliseconds()
-			//fmt.Println(elapsed.Milliseconds())
+			//fmt.Println(dec)
 			if err != nil {
 				t.Fatalf("error when decrypting: %v", err)
 			}
